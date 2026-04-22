@@ -3,6 +3,7 @@ import type {
   AdhocTransaction,
   RecurringTransaction,
   SkippedOccurrence,
+  User,
 } from '../types'
 
 const BASE = '/api'
@@ -21,6 +22,25 @@ async function request<T>(
   }
   return res.json() as Promise<T>
 }
+
+// Auth
+export const getMe = () =>
+  request<User>('/auth/me')
+
+export const login = (email: string, password: string) =>
+  request<{ ok: boolean; email: string }>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+
+export const register = (email: string, password: string) =>
+  request<{ ok: boolean; email: string }>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+
+export const logout = () =>
+  request<{ ok: boolean }>('/auth/logout', { method: 'POST' })
 
 // Balance
 export const getBalance = () =>

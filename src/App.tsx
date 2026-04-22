@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AdhocTransaction, AccountBalance, RecurringTransaction, SkippedOccurrence, TxEntry } from './types'
+import type { AdhocTransaction, AccountBalance, RecurringTransaction, SkippedOccurrence, TxEntry, User } from './types'
 import * as api from './lib/api'
 import { computeAllDailyBalances } from './lib/balance'
 import { applyTheme, getStoredTheme, type Theme } from './lib/theme'
@@ -7,6 +7,7 @@ import BalanceInput from './components/BalanceInput'
 import CalendarView from './components/CalendarView'
 import TransactionModal from './components/TransactionModal'
 import RecurringList from './components/RecurringList'
+import LoginPage from './components/LoginPage'
 
 const today = new Date().toISOString().slice(0, 10)
 const [todayYear, todayMonth] = today.split('-').map(Number)
@@ -23,11 +24,14 @@ function getRangeFromToday(): { fromDate: string; toDate: string } {
 }
 
 export default function App() {
+  // undefined = checking auth, null = not authed, User = authed
+  const [user, setUser] = useState<User | null | undefined>(undefined)
+
   const [balance, setBalance] = useState<AccountBalance>({ amount: 0, balance_date: today, updated_at: null, cutoff_date: null })
   const [recurring, setRecurring] = useState<RecurringTransaction[]>([])
   const [adhoc, setAdhoc] = useState<AdhocTransaction[]>([])
   const [skipped, setSkipped] = useState<SkippedOccurrence[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const [viewYear, setViewYear] = useState(todayYear)
@@ -50,8 +54,18 @@ export default function App() {
     return () => mq.removeEventListener('change', handler)
   }, [theme])
 
-  // Initial data load
+  // Check auth on mount
   useEffect(() => {
+    api.getMe()
+      .then(setUser)
+      .catch(() => setUser(null))
+  }, [])
+
+  // Load data once authenticated
+  useEffect(() => {
+    if (!user) return
+    setLoading(true)
+    setError('')
     Promise.all([api.getBalance(), api.getRecurring(), api.getAdhoc(), api.getSkipped()])
       .then(([bal, rec, adh, skp]) => {
         setBalance(bal)
@@ -61,7 +75,7 @@ export default function App() {
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [user])
 
   const { fromDate, toDate } = useMemo(() => getRangeFromToday(), [])
 
@@ -99,6 +113,16 @@ export default function App() {
   const handleThemeChange = useCallback((t: Theme) => {
     setTheme(t)
     applyTheme(t)
+  }, [])
+
+  // Logout
+  const handleLogout = useCallback(async () => {
+    await api.logout()
+    setUser(null)
+    setBalance({ amount: 0, balance_date: today, updated_at: null, cutoff_date: null })
+    setRecurring([])
+    setAdhoc([])
+    setSkipped([])
   }, [])
 
   // Balance save
@@ -206,9 +230,23 @@ export default function App() {
     setAdhoc((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
+  // Checking auth
+  if (user === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500">
+        Loading…
+      </div>
+    )
+  }
+
+  // Not authenticated
+  if (user === null) {
+    return <LoginPage onSuccess={setUser} />
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-400 dark:text-gray-500 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500">
         Loading…
       </div>
     )
@@ -235,29 +273,42 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-5xl mx-auto px-4">
+          {/* Row 1: logo + theme + user */}
+          <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700/60">
             <span className="text-xl font-bold text-indigo-600">💰 Budget Buddy</span>
+            <div className="flex items-center gap-3">
+              <ThemeToggle value={theme} onChange={handleThemeChange} />
+              <span className="text-xs text-gray-400 dark:text-gray-500">{user.email}</span>
+              <button
+                onClick={handleLogout}
+                className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+              >
+                Log out
+              </button>
+            </div>
+          </div>
+          {/* Row 2: balance + actions */}
+          <div className="flex items-center justify-between py-2.5">
             <BalanceInput
               value={balance.amount}
               balanceDate={balance.balance_date}
               onSave={handleSaveBalance}
             />
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle value={theme} onChange={handleThemeChange} />
-            <button
-              onClick={() => setRecurringPanelOpen(true)}
-              className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Schedule
-            </button>
-            <button
-              onClick={handleAddClick}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              + Add
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setRecurringPanelOpen(true)}
+                className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Schedule
+              </button>
+              <button
+                onClick={handleAddClick}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                + Add
+              </button>
+            </div>
           </div>
         </div>
       </header>
