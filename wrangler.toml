@@ -1,0 +1,15 @@
+name = "budget-buddy"
+main = "worker/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "dist"
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "budget-buddy-db"
+# Replace with your actual database_id after running:
+# npx wrangler d1 create budget-buddy-db
+database_id = "8ac43c10-e147-4d98-b869-ae6b3a5068d9"
