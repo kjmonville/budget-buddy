@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AdhocTransaction, AccountBalance, RecurringTransaction, SkippedOccurrence, TxEntry } from './types'
 import * as api from './lib/api'
 import { computeAllDailyBalances } from './lib/balance'
+import { applyTheme, getStoredTheme, type Theme } from './lib/theme'
 import BalanceInput from './components/BalanceInput'
 import CalendarView from './components/CalendarView'
 import TransactionModal from './components/TransactionModal'
@@ -35,7 +36,19 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalDate, setModalDate] = useState<string | undefined>()
   const [editingRecurring, setEditingRecurring] = useState<RecurringTransaction | undefined>()
+  const [editingAdhoc, setEditingAdhoc] = useState<AdhocTransaction | undefined>()
   const [recurringPanelOpen, setRecurringPanelOpen] = useState(false)
+  const [theme, setTheme] = useState<Theme>(getStoredTheme)
+
+  // Apply theme on mount and listen for system preference changes
+  useEffect(() => {
+    applyTheme(theme)
+    if (theme !== 'auto') return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () => applyTheme('auto')
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [theme])
 
   // Initial data load
   useEffect(() => {
@@ -54,7 +67,6 @@ export default function App() {
 
   const dailyBalances = useMemo(() => {
     const anchorDate = balance.balance_date ?? today
-    // Fallback: first of current month if cutoff not yet set
     const cutoffDate = balance.cutoff_date ?? today.slice(0, 7) + '-01'
     return computeAllDailyBalances(
       balance.amount,
@@ -83,17 +95,24 @@ export default function App() {
     })
   }, [])
 
+  // Theme change
+  const handleThemeChange = useCallback((t: Theme) => {
+    setTheme(t)
+    applyTheme(t)
+  }, [])
+
   // Balance save
   const handleSaveBalance = useCallback(async (amount: number) => {
     const newBalance = { ...balance, amount, balance_date: today, updated_at: new Date().toISOString() }
     setBalance(newBalance)
     await api.setBalance(amount, today)
-  }, [])
+  }, [balance])
 
   // Add transaction (modal open from day click)
   const handleDayClick = useCallback((date: string) => {
     setModalDate(date)
     setEditingRecurring(undefined)
+    setEditingAdhoc(undefined)
     setModalOpen(true)
   }, [])
 
@@ -101,7 +120,15 @@ export default function App() {
   const handleAddClick = useCallback(() => {
     setModalDate(undefined)
     setEditingRecurring(undefined)
+    setEditingAdhoc(undefined)
     setModalOpen(true)
+  }, [])
+
+  // Close modal and clear editing state
+  const handleModalClose = useCallback(() => {
+    setModalOpen(false)
+    setEditingRecurring(undefined)
+    setEditingAdhoc(undefined)
   }, [])
 
   // Toggle skip on a transaction occurrence
@@ -138,9 +165,28 @@ export default function App() {
     []
   )
 
-  // Edit recurring (from RecurringList)
+  // Update ad-hoc (from Schedule panel edit)
+  const handleUpdateAdhoc = useCallback(
+    async (data: Omit<AdhocTransaction, 'id' | 'created_at'>) => {
+      const updated = await api.updateAdhoc(editingAdhoc!.id, data)
+      setAdhoc((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+    },
+    [editingAdhoc]
+  )
+
+  // Edit recurring (from Schedule panel)
   const handleEditRecurring = useCallback((r: RecurringTransaction) => {
     setEditingRecurring(r)
+    setEditingAdhoc(undefined)
+    setModalDate(undefined)
+    setModalOpen(true)
+    setRecurringPanelOpen(false)
+  }, [])
+
+  // Edit ad-hoc (from Schedule panel)
+  const handleEditAdhoc = useCallback((t: AdhocTransaction) => {
+    setEditingAdhoc(t)
+    setEditingRecurring(undefined)
     setModalDate(undefined)
     setModalOpen(true)
     setRecurringPanelOpen(false)
@@ -153,9 +199,16 @@ export default function App() {
     setRecurring((prev) => prev.filter((r) => r.id !== id))
   }, [])
 
+  // Delete ad-hoc
+  const handleDeleteAdhoc = useCallback(async (id: string) => {
+    if (!confirm('Remove this transaction?')) return
+    await api.deleteAdhoc(id)
+    setAdhoc((prev) => prev.filter((t) => t.id !== id))
+  }, [])
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-400">
+      <div className="min-h-screen flex items-center justify-center text-gray-400 dark:text-gray-500 dark:bg-gray-900">
         Loading…
       </div>
     )
@@ -163,10 +216,10 @@ export default function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center dark:bg-gray-900">
         <div className="text-center">
           <p className="text-red-500 font-medium mb-2">Failed to load</p>
-          <p className="text-sm text-gray-500">{error}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm"
@@ -179,9 +232,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
           <div className="flex items-center gap-3">
             <span className="text-xl font-bold text-indigo-600">💰 Budget Buddy</span>
@@ -191,12 +244,13 @@ export default function App() {
               onSave={handleSaveBalance}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <ThemeToggle value={theme} onChange={handleThemeChange} />
             <button
               onClick={() => setRecurringPanelOpen(true)}
-              className="px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
-              Recurring
+              Schedule
             </button>
             <button
               onClick={handleAddClick}
@@ -226,18 +280,51 @@ export default function App() {
         open={modalOpen}
         initialDate={modalDate}
         editRecurring={editingRecurring}
+        editAdhoc={editingAdhoc}
         onSaveRecurring={handleSaveRecurring}
         onSaveAdhoc={handleSaveAdhoc}
-        onClose={() => setModalOpen(false)}
+        onUpdateAdhoc={handleUpdateAdhoc}
+        onClose={handleModalClose}
       />
 
       <RecurringList
         open={recurringPanelOpen}
         recurring={recurring}
+        adhoc={adhoc}
         onEdit={handleEditRecurring}
         onDelete={handleDeleteRecurring}
+        onEditAdhoc={handleEditAdhoc}
+        onDeleteAdhoc={handleDeleteAdhoc}
         onClose={() => setRecurringPanelOpen(false)}
       />
+    </div>
+  )
+}
+
+const THEME_OPTIONS: { value: Theme; label: string; icon: string }[] = [
+  { value: 'light', label: 'Light', icon: '☀' },
+  { value: 'auto', label: 'Auto', icon: '⊙' },
+  { value: 'dark', label: 'Dark', icon: '☾' },
+]
+
+function ThemeToggle({ value, onChange }: { value: Theme; onChange: (t: Theme) => void }) {
+  return (
+    <div className="flex items-center rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+      {THEME_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          title={opt.label}
+          className={[
+            'px-2 py-1.5 text-sm transition-colors',
+            value === opt.value
+              ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
+              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700',
+          ].join(' ')}
+        >
+          {opt.icon}
+        </button>
+      ))}
     </div>
   )
 }

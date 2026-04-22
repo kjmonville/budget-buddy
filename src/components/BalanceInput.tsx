@@ -38,11 +38,11 @@ export default function BalanceInput({ value, balanceDate, onSave }: Props) {
 
   return (
     <div className="flex items-center gap-3">
-      <label className="text-sm font-medium text-gray-600 whitespace-nowrap">
+      <label className="text-sm font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap">
         Today's Balance
       </label>
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
           $
         </span>
         <input
@@ -50,12 +50,12 @@ export default function BalanceInput({ value, balanceDate, onSave }: Props) {
           step="0.01"
           value={raw}
           onChange={handleChange}
-          className="pl-7 pr-3 py-2 w-40 border border-gray-300 rounded-lg text-right font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="pl-7 pr-3 py-2 w-40 border border-gray-300 dark:border-gray-600 rounded-lg text-right font-mono text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
         />
       </div>
       {saving && <span className="text-xs text-indigo-500 animate-pulse">Saving…</span>}
       {!saving && formatted && (
-        <span className="text-xs text-gray-400">as of {formatted}</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">as of {formatted}</span>
       )}
     </div>
   )

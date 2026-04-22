@@ -64,6 +64,12 @@ export const createAdhoc = (data: Omit<AdhocTransaction, 'id' | 'created_at'>) =
     body: JSON.stringify(data),
   })
 
+export const updateAdhoc = (id: string, data: Omit<AdhocTransaction, 'id' | 'created_at'>) =>
+  request<AdhocTransaction>(`/adhoc/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+
 export const deleteAdhoc = (id: string) =>
   request<{ ok: boolean }>(`/adhoc/${id}`, { method: 'DELETE' })
 

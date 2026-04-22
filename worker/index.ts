@@ -214,6 +214,24 @@ async function postAdhoc(env: Env, req: Request): Promise<Response> {
   return json(row, 201)
 }
 
+async function putAdhoc(env: Env, req: Request, id: string): Promise<Response> {
+  const existing = await env.DB.prepare(
+    'SELECT id FROM adhoc_transactions WHERE id = ?'
+  ).bind(id).first()
+  if (!existing) return notFound()
+  const body = await req.json<{ type?: string; name?: string; amount?: number; date?: string }>()
+  await env.DB.prepare(
+    `UPDATE adhoc_transactions
+     SET type = COALESCE(?, type), name = COALESCE(?, name),
+         amount = COALESCE(?, amount), date = COALESCE(?, date)
+     WHERE id = ?`
+  ).bind(body.type ?? null, body.name ?? null, body.amount ?? null, body.date ?? null, id).run()
+  const row = await env.DB.prepare(
+    'SELECT * FROM adhoc_transactions WHERE id = ?'
+  ).bind(id).first()
+  return json(row)
+}
+
 async function deleteAdhoc(env: Env, id: string): Promise<Response> {
   const result = await env.DB.prepare(
     'DELETE FROM adhoc_transactions WHERE id = ?'
@@ -300,6 +318,7 @@ export default {
         }
         const adhocMatch = matchPath('/api/adhoc/:id', pathname)
         if (adhocMatch) {
+          if (method === 'PUT') return putAdhoc(env, request, adhocMatch.id)
           if (method === 'DELETE') return deleteAdhoc(env, adhocMatch.id)
         }
 

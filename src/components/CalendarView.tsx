@@ -52,17 +52,17 @@ export default function CalendarView({
       <div className="flex items-center justify-between px-1">
         <button
           onClick={onPrev}
-          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
           aria-label="Previous month"
         >
           ‹
         </button>
-        <h2 className="text-lg font-semibold text-gray-800">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           {MONTHS[month - 1]} {year}
         </h2>
         <button
           onClick={onNext}
-          className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
           aria-label="Next month"
         >
           ›
@@ -70,11 +70,11 @@ export default function CalendarView({
       </div>
 
       {/* Day-of-week headers */}
-      <div className="grid grid-cols-7 border-b border-gray-200">
+      <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
         {DAYS_OF_WEEK.map((d) => (
           <div
             key={d}
-            className="py-1 text-center text-xs font-medium text-gray-400 uppercase tracking-wide"
+            className="py-1 text-center text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide"
           >
             {d}
           </div>

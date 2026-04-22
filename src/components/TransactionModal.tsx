@@ -13,8 +13,10 @@ interface Props {
   open: boolean
   initialDate?: string
   editRecurring?: RecurringTransaction
+  editAdhoc?: AdhocTransaction
   onSaveRecurring: (data: Omit<RecurringTransaction, 'id' | 'active' | 'created_at'>) => Promise<void>
   onSaveAdhoc: (data: Omit<AdhocTransaction, 'id' | 'created_at'>) => Promise<void>
+  onUpdateAdhoc?: (data: Omit<AdhocTransaction, 'id' | 'created_at'>) => Promise<void>
   onClose: () => void
 }
 
@@ -36,8 +38,10 @@ export default function TransactionModal({
   open,
   initialDate,
   editRecurring,
+  editAdhoc,
   onSaveRecurring,
   onSaveAdhoc,
+  onUpdateAdhoc,
   onClose,
 }: Props) {
   const [mode, setMode] = useState<Mode>('recurring')
@@ -64,6 +68,16 @@ export default function TransactionModal({
   useEffect(() => {
     if (!open) return
     setError('')
+
+    if (editAdhoc) {
+      setMode('one-time')
+      setAType(editAdhoc.type)
+      setAName(editAdhoc.name)
+      setAAmount(String(editAdhoc.amount))
+      setADate(editAdhoc.date)
+      return
+    }
+
     setMode('recurring')
 
     // Reset recurring fields — populate from editRecurring or clear
@@ -83,7 +97,7 @@ export default function TransactionModal({
     setAName('')
     setAAmount('')
     setADate(initialDate ?? new Date().toISOString().slice(0, 10))
-  }, [open, initialDate, editRecurring])
+  }, [open, initialDate, editRecurring, editAdhoc])
 
   if (!open) return null
 
@@ -114,7 +128,12 @@ export default function TransactionModal({
         if (!aName.trim()) throw new Error('Name is required')
         if (isNaN(amt) || amt <= 0) throw new Error('Amount must be a positive number')
         if (!aDate) throw new Error('Date is required')
-        await onSaveAdhoc({ type: aType, name: aName.trim(), amount: amt, date: aDate })
+        const adhocData = { type: aType, name: aName.trim(), amount: amt, date: aDate }
+        if (editAdhoc && onUpdateAdhoc) {
+          await onUpdateAdhoc(adhocData)
+        } else {
+          await onSaveAdhoc(adhocData)
+        }
       }
       onClose()
     } catch (e) {
@@ -127,20 +146,20 @@ export default function TransactionModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h3 className="font-semibold text-gray-800">
-            {editRecurring ? 'Edit Recurring Transaction' : 'Add Transaction'}
+        <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700">
+          <h3 className="font-semibold text-gray-800 dark:text-gray-100">
+            {editRecurring ? 'Edit Recurring Transaction' : editAdhoc ? 'Edit One-time Transaction' : 'Add Transaction'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none">&times;</button>
         </div>
 
         {/* Mode tabs (only for new transactions) */}
-        {!editRecurring && (
-          <div className="flex border-b">
+        {!editRecurring && !editAdhoc && (
+          <div className="flex border-b dark:border-gray-700">
             {(['recurring', 'one-time'] as Mode[]).map((m) => (
               <button
                 key={m}
@@ -148,8 +167,8 @@ export default function TransactionModal({
                 className={[
                   'flex-1 py-2.5 text-sm font-medium capitalize transition-colors',
                   mode === m
-                    ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
-                    : 'text-gray-500 hover:text-gray-700',
+                    ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
                 ].join(' ')}
               >
                 {m}
@@ -280,14 +299,14 @@ export default function TransactionModal({
             </>
           )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
           <button
             onClick={handleSave}
             disabled={saving}
             className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
           >
-            {saving ? 'Saving…' : editRecurring ? 'Save changes' : 'Add transaction'}
+            {saving ? 'Saving…' : (editRecurring || editAdhoc) ? 'Save changes' : 'Add transaction'}
           </button>
         </div>
       </div>
@@ -295,12 +314,12 @@ export default function TransactionModal({
   )
 }
 
-const INPUT_CLS = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400'
+const INPUT_CLS = 'w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</label>
+      <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</label>
       {children}
     </div>
   )
@@ -308,7 +327,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function TypeToggle({ value, onChange }: { value: TransactionType; onChange: (v: TransactionType) => void }) {
   return (
-    <div className="flex rounded-lg overflow-hidden border border-gray-300">
+    <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
       {(['expense', 'deposit'] as TransactionType[]).map((t) => (
         <button
           key={t}
@@ -319,7 +338,7 @@ function TypeToggle({ value, onChange }: { value: TransactionType; onChange: (v:
               ? t === 'expense'
                 ? 'bg-red-500 text-white'
                 : 'bg-emerald-500 text-white'
-              : 'bg-white text-gray-500 hover:bg-gray-50',
+              : 'bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600',
           ].join(' ')}
         >
           {t}
@@ -332,7 +351,7 @@ function TypeToggle({ value, onChange }: { value: TransactionType; onChange: (v:
 function AmountInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="relative">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
       <input
         type="number"
         min={0}
@@ -340,7 +359,7 @@ function AmountInput({ value, onChange }: { value: string; onChange: (v: string)
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="0.00"
-        className="pl-7 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        className="pl-7 w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
       />
     </div>
   )
