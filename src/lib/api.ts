@@ -2,6 +2,7 @@ import type {
   AccountBalance,
   AdhocTransaction,
   RecurringTransaction,
+  SkippedOccurrence,
 } from '../types'
 
 const BASE = '/api'
@@ -65,3 +66,16 @@ export const createAdhoc = (data: Omit<AdhocTransaction, 'id' | 'created_at'>) =
 
 export const deleteAdhoc = (id: string) =>
   request<{ ok: boolean }>(`/adhoc/${id}`, { method: 'DELETE' })
+
+// Skipped occurrences
+export const getSkipped = () =>
+  request<SkippedOccurrence[]>('/skipped')
+
+export const skipOccurrence = (transaction_id: string, transaction_type: 'recurring' | 'adhoc', date: string) =>
+  request<SkippedOccurrence>('/skipped', {
+    method: 'POST',
+    body: JSON.stringify({ transaction_id, transaction_type, date }),
+  })
+
+export const unskipOccurrence = (id: string) =>
+  request<{ ok: boolean }>(`/skipped/${id}`, { method: 'DELETE' })

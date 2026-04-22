@@ -1,4 +1,4 @@
-import type { DayBalance } from '../types'
+import type { DayBalance, TxEntry } from '../types'
 
 const fmt = (n: number) =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -9,9 +9,10 @@ interface Props {
   data: DayBalance | undefined
   isCurrentMonth: boolean
   onClick: (date: string) => void
+  onToggleSkip: (entry: TxEntry, date: string) => void
 }
 
-export default function CalendarDay({ date, day, data, isCurrentMonth, onClick }: Props) {
+export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, onToggleSkip }: Props) {
   const isToday = data?.isToday ?? false
   const isPast = data?.isPast ?? (!data && !isCurrentMonth)
   const balance = data?.endBalance ?? null
@@ -45,24 +46,10 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick }
       {isCurrentMonth && hasTransactions && (
         <div className="flex flex-col gap-0.5 flex-1 overflow-hidden">
           {data!.deposits.map((t) => (
-            <div
-              key={t.id}
-              className="text-[10px] leading-tight bg-emerald-100 text-emerald-800 rounded px-1 flex justify-between gap-1"
-              title={`${t.name} +$${fmt(t.amount)}`}
-            >
-              <span className="truncate">+{t.name}</span>
-              <span className="font-mono shrink-0">{fmt(t.amount)}</span>
-            </div>
+            <TxBadge key={t.id} entry={t} date={date} isDeposit onToggleSkip={onToggleSkip} />
           ))}
           {data!.expenses.map((t) => (
-            <div
-              key={t.id}
-              className="text-[10px] leading-tight bg-red-100 text-red-800 rounded px-1 flex justify-between gap-1"
-              title={`${t.name} -$${fmt(t.amount)}`}
-            >
-              <span className="truncate">-{t.name}</span>
-              <span className="font-mono shrink-0">{fmt(t.amount)}</span>
-            </div>
+            <TxBadge key={t.id} entry={t} date={date} isDeposit={false} onToggleSkip={onToggleSkip} />
           ))}
         </div>
       )}
@@ -78,6 +65,36 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick }
           {negative ? '-' : ''}${fmt(Math.abs(balance))}
         </div>
       )}
+    </div>
+  )
+}
+
+function TxBadge({
+  entry,
+  date,
+  isDeposit,
+  onToggleSkip,
+}: {
+  entry: TxEntry
+  date: string
+  isDeposit: boolean
+  onToggleSkip: (entry: TxEntry, date: string) => void
+}) {
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onToggleSkip(entry, date) }}
+      title={entry.skipped ? 'Click to re-enable' : 'Click to mark complete'}
+      className={[
+        'text-[10px] leading-tight rounded px-1 flex justify-between gap-1 cursor-pointer select-none',
+        entry.skipped
+          ? 'bg-gray-100 text-gray-400 line-through'
+          : isDeposit
+            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+            : 'bg-red-100 text-red-800 hover:bg-red-200',
+      ].join(' ')}
+    >
+      <span className="truncate">{isDeposit ? '+' : '-'}{entry.name}</span>
+      <span className="font-mono shrink-0">{fmt(entry.amount)}</span>
     </div>
   )
 }

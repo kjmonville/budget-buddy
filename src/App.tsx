@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AdhocTransaction, AccountBalance, RecurringTransaction } from './types'
+import type { AdhocTransaction, AccountBalance, RecurringTransaction, SkippedOccurrence, TxEntry } from './types'
 import * as api from './lib/api'
 import { computeAllDailyBalances } from './lib/balance'
 import BalanceInput from './components/BalanceInput'
@@ -10,12 +10,11 @@ import RecurringList from './components/RecurringList'
 const today = new Date().toISOString().slice(0, 10)
 const [todayYear, todayMonth] = today.split('-').map(Number)
 
-// Compute balance range: 3 months back to 18 months forward
 function getRangeFromToday(): { fromDate: string; toDate: string } {
   const from = new Date()
   from.setMonth(from.getMonth() - 3, 1)
   const to = new Date()
-  to.setMonth(to.getMonth() + 18 + 1, 0) // last day of +18 months
+  to.setMonth(to.getMonth() + 18 + 1, 0)
   return {
     fromDate: from.toISOString().slice(0, 10),
     toDate: to.toISOString().slice(0, 10),
@@ -26,6 +25,7 @@ export default function App() {
   const [balance, setBalance] = useState<AccountBalance>({ amount: 0, balance_date: today, updated_at: null })
   const [recurring, setRecurring] = useState<RecurringTransaction[]>([])
   const [adhoc, setAdhoc] = useState<AdhocTransaction[]>([])
+  const [skipped, setSkipped] = useState<SkippedOccurrence[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -39,17 +39,17 @@ export default function App() {
 
   // Initial data load
   useEffect(() => {
-    Promise.all([api.getBalance(), api.getRecurring(), api.getAdhoc()])
-      .then(([bal, rec, adh]) => {
+    Promise.all([api.getBalance(), api.getRecurring(), api.getAdhoc(), api.getSkipped()])
+      .then(([bal, rec, adh, skp]) => {
         setBalance(bal)
         setRecurring(rec)
         setAdhoc(adh)
+        setSkipped(skp)
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false))
   }, [])
 
-  // Compute daily balances across the full range
   const { fromDate, toDate } = useMemo(() => getRangeFromToday(), [])
 
   const dailyBalances = useMemo(() => {
@@ -59,10 +59,11 @@ export default function App() {
       anchorDate,
       recurring,
       adhoc,
+      skipped,
       fromDate,
       toDate
     )
-  }, [balance, recurring, adhoc, fromDate, toDate])
+  }, [balance, recurring, adhoc, skipped, fromDate, toDate])
 
   // Navigation
   const prevMonth = useCallback(() => {
@@ -98,6 +99,17 @@ export default function App() {
     setModalDate(undefined)
     setEditingRecurring(undefined)
     setModalOpen(true)
+  }, [])
+
+  // Toggle skip on a transaction occurrence
+  const handleToggleSkip = useCallback(async (entry: TxEntry, date: string) => {
+    if (entry.skipped) {
+      await api.unskipOccurrence(entry.skippedId!)
+      setSkipped((prev) => prev.filter((s) => s.id !== entry.skippedId))
+    } else {
+      const created = await api.skipOccurrence(entry.id, entry.source, date)
+      setSkipped((prev) => [...prev, created])
+    }
   }, [])
 
   // Save recurring
@@ -200,6 +212,7 @@ export default function App() {
           month={viewMonth}
           balances={dailyBalances}
           onDayClick={handleDayClick}
+          onToggleSkip={handleToggleSkip}
           onPrev={prevMonth}
           onNext={nextMonth}
         />

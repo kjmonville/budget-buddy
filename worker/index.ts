@@ -222,6 +222,37 @@ async function deleteAdhoc(env: Env, id: string): Promise<Response> {
   return json({ ok: true })
 }
 
+// ─── Skipped occurrence handlers ─────────────────────────────────────────────
+
+async function getSkipped(env: Env): Promise<Response> {
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM skipped_occurrences ORDER BY date ASC'
+  ).all()
+  return json(results)
+}
+
+async function postSkipped(env: Env, req: Request): Promise<Response> {
+  const body = await req.json<{ transaction_id?: string; transaction_type?: string; date?: string }>()
+  if (!body.transaction_id || !body.transaction_type || !body.date)
+    return badRequest('transaction_id, transaction_type, date are required')
+  const id = crypto.randomUUID()
+  await env.DB.prepare(
+    'INSERT OR IGNORE INTO skipped_occurrences (id, transaction_id, transaction_type, date) VALUES (?, ?, ?, ?)'
+  ).bind(id, body.transaction_id, body.transaction_type, body.date).run()
+  const row = await env.DB.prepare(
+    'SELECT * FROM skipped_occurrences WHERE transaction_id = ? AND date = ?'
+  ).bind(body.transaction_id, body.date).first()
+  return json(row, 201)
+}
+
+async function deleteSkipped(env: Env, id: string): Promise<Response> {
+  const result = await env.DB.prepare(
+    'DELETE FROM skipped_occurrences WHERE id = ?'
+  ).bind(id).run()
+  if (!result.meta.changes) return notFound()
+  return json({ ok: true })
+}
+
 // ─── Router ──────────────────────────────────────────────────────────────────
 
 export default {
@@ -268,6 +299,16 @@ export default {
         const adhocMatch = matchPath('/api/adhoc/:id', pathname)
         if (adhocMatch) {
           if (method === 'DELETE') return deleteAdhoc(env, adhocMatch.id)
+        }
+
+        // Skipped occurrences
+        if (pathname === '/api/skipped') {
+          if (method === 'GET') return getSkipped(env)
+          if (method === 'POST') return postSkipped(env, request)
+        }
+        const skippedMatch = matchPath('/api/skipped/:id', pathname)
+        if (skippedMatch) {
+          if (method === 'DELETE') return deleteSkipped(env, skippedMatch.id)
         }
 
         return notFound()

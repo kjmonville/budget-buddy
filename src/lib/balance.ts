@@ -1,11 +1,10 @@
-import type { AdhocTransaction, DayBalance, RecurringTransaction } from '../types'
+import type { AdhocTransaction, DayBalance, RecurringTransaction, SkippedOccurrence, TxEntry } from '../types'
 import { expandRecurring } from './recurrence'
-
-type TxEntry = { id: string; name: string; amount: number }
 
 function buildTxMap(
   recurring: RecurringTransaction[],
   adhoc: AdhocTransaction[],
+  skipped: SkippedOccurrence[],
   fromDate: string,
   toDate: string
 ): Map<string, { deposits: TxEntry[]; expenses: TxEntry[] }> {
@@ -16,7 +15,12 @@ function buildTxMap(
     return map.get(date)!
   }
 
-  // Determine month range to expand
+  // Build fast skip lookup: "transactionId|date" → skipped_occurrences.id
+  const skipMap = new Map<string, string>()
+  for (const s of skipped) {
+    skipMap.set(`${s.transaction_id}|${s.date}`, s.id)
+  }
+
   const [fromY, fromM] = fromDate.split('-').map(Number)
   const [toY, toM] = toDate.split('-').map(Number)
 
@@ -26,8 +30,9 @@ function buildTxMap(
       if (!rule.active) continue
       for (const date of expandRecurring(rule, y, m)) {
         if (date < fromDate || date > toDate) continue
+        const skippedId = skipMap.get(`${rule.id}|${date}`) ?? null
         const day = ensure(date)
-        const entry = { id: rule.id, name: rule.name, amount: rule.amount }
+        const entry: TxEntry = { id: rule.id, name: rule.name, amount: rule.amount, source: 'recurring', skipped: skippedId !== null, skippedId }
         if (rule.type === 'deposit') day.deposits.push(entry)
         else day.expenses.push(entry)
       }
@@ -38,8 +43,9 @@ function buildTxMap(
 
   for (const tx of adhoc) {
     if (tx.date < fromDate || tx.date > toDate) continue
+    const skippedId = skipMap.get(`${tx.id}|${tx.date}`) ?? null
     const day = ensure(tx.date)
-    const entry = { id: tx.id, name: tx.name, amount: tx.amount }
+    const entry: TxEntry = { id: tx.id, name: tx.name, amount: tx.amount, source: 'adhoc', skipped: skippedId !== null, skippedId }
     if (tx.type === 'deposit') day.deposits.push(entry)
     else day.expenses.push(entry)
   }
@@ -47,23 +53,17 @@ function buildTxMap(
   return map
 }
 
-/**
- * Computes end-of-day balances for every day between fromDate and toDate.
- *
- * startBalance = the bank balance at the START of startDate (before that day's transactions).
- * startDate    = the anchor date for startBalance (typically today).
- */
 export function computeAllDailyBalances(
   startBalance: number,
   startDate: string,
   recurring: RecurringTransaction[],
   adhoc: AdhocTransaction[],
+  skipped: SkippedOccurrence[],
   fromDate: string,
   toDate: string
 ): Record<string, DayBalance> {
-  const txMap = buildTxMap(recurring, adhoc, fromDate, toDate)
+  const txMap = buildTxMap(recurring, adhoc, skipped, fromDate, toDate)
 
-  // Enumerate all dates in range
   const allDates: string[] = []
   const cur = new Date(fromDate + 'T00:00:00')
   const end = new Date(toDate + 'T00:00:00')
@@ -81,32 +81,22 @@ export function computeAllDailyBalances(
     if (date < startDate) continue
     if (!started) started = true
     const { deposits, expenses } = txMap.get(date) ?? { deposits: [], expenses: [] }
-    const net = deposits.reduce((s, t) => s + t.amount, 0) - expenses.reduce((s, t) => s + t.amount, 0)
+    const net = deposits.filter(t => !t.skipped).reduce((s, t) => s + t.amount, 0)
+             - expenses.filter(t => !t.skipped).reduce((s, t) => s + t.amount, 0)
     fwdBal += net
-    result[date] = {
-      deposits,
-      expenses,
-      endBalance: fwdBal,
-      isToday: date === startDate,
-      isPast: false,
-    }
+    result[date] = { deposits, expenses, endBalance: fwdBal, isToday: date === startDate, isPast: false }
   }
 
   // Backward pass: from day before startDate down to fromDate
-  // B(d-1) = B(d) - D(d) + E(d); our anchor is B(startDate - 1) = startBalance
+  // B(d-1) = B(d) - D(d) + E(d); anchor is B(startDate - 1) = startBalance
   let bwdBal = startBalance
   for (let i = allDates.indexOf(startDate) - 1; i >= 0; i--) {
     const date = allDates[i]
     const { deposits, expenses } = txMap.get(date) ?? { deposits: [], expenses: [] }
-    // bwdBal is end-of-day for this date
-    result[date] = {
-      deposits,
-      expenses,
-      endBalance: bwdBal,
-      isToday: false,
-      isPast: true,
-    }
-    bwdBal = bwdBal - deposits.reduce((s, t) => s + t.amount, 0) + expenses.reduce((s, t) => s + t.amount, 0)
+    result[date] = { deposits, expenses, endBalance: bwdBal, isToday: false, isPast: true }
+    bwdBal = bwdBal
+      - deposits.filter(t => !t.skipped).reduce((s, t) => s + t.amount, 0)
+      + expenses.filter(t => !t.skipped).reduce((s, t) => s + t.amount, 0)
   }
 
   return result

@@ -1,4 +1,4 @@
-import type { DayBalance } from '../types'
+import type { DayBalance, TxEntry } from '../types'
 import CalendarDay from './CalendarDay'
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -12,6 +12,7 @@ interface Props {
   month: number // 1-indexed
   balances: Record<string, DayBalance>
   onDayClick: (date: string) => void
+  onToggleSkip: (entry: TxEntry, date: string) => void
   onPrev: () => void
   onNext: () => void
 }
@@ -21,6 +22,7 @@ export default function CalendarView({
   month,
   balances,
   onDayClick,
+  onToggleSkip,
   onPrev,
   onNext,
 }: Props) {
@@ -29,14 +31,12 @@ export default function CalendarView({
 
   const pad = (n: number) => String(n).padStart(2, '0')
 
-  // Build grid cells: leading blanks + current month + trailing blanks
   const totalCells = Math.ceil((firstDow + daysInMonth) / 7) * 7
   const cells: Array<{ date: string; day: number; inMonth: boolean }> = []
 
   for (let i = 0; i < totalCells; i++) {
     const dayOffset = i - firstDow + 1
     if (dayOffset < 1 || dayOffset > daysInMonth) {
-      // Compute actual date for prev/next month overflow
       const d = new Date(year, month - 1, dayOffset)
       const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
       cells.push({ date: dateStr, day: d.getDate(), inMonth: false })
@@ -91,6 +91,7 @@ export default function CalendarView({
             data={balances[date]}
             isCurrentMonth={inMonth}
             onClick={onDayClick}
+            onToggleSkip={onToggleSkip}
           />
         ))}
       </div>

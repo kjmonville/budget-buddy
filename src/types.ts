@@ -37,9 +37,26 @@ export interface AccountBalance {
   updated_at: string | null
 }
 
+export interface TxEntry {
+  id: string
+  name: string
+  amount: number
+  source: 'recurring' | 'adhoc'
+  skipped: boolean
+  skippedId: string | null
+}
+
+export interface SkippedOccurrence {
+  id: string
+  transaction_id: string
+  transaction_type: 'recurring' | 'adhoc'
+  date: string
+  created_at: string
+}
+
 export interface DayBalance {
-  deposits: Array<{ id: string; name: string; amount: number }>
-  expenses: Array<{ id: string; name: string; amount: number }>
+  deposits: TxEntry[]
+  expenses: TxEntry[]
   endBalance: number
   isToday: boolean
   isPast: boolean
