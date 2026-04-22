@@ -15,7 +15,6 @@ function buildTxMap(
     return map.get(date)!
   }
 
-  // Build fast skip lookup: "transactionId|date" → skipped_occurrences.id
   const skipMap = new Map<string, string>()
   for (const s of skipped) {
     skipMap.set(`${s.transaction_id}|${s.date}`, s.id)
@@ -53,16 +52,29 @@ function buildTxMap(
   return map
 }
 
+/**
+ * startBalance = actual bank balance as of startDate (reflects only cleared/completed transactions).
+ * cutoffDate   = first day of first month the tool was used; transactions before this are ignored.
+ *
+ * Past days (before today): show transaction badges but no balance number.
+ * Today and future: project balance forward using all uncompleted transactions.
+ * The adjustment accounts for uncompleted transactions between cutoffDate and startDate-1
+ * so they are factored into today's opening balance.
+ */
 export function computeAllDailyBalances(
   startBalance: number,
   startDate: string,
   recurring: RecurringTransaction[],
   adhoc: AdhocTransaction[],
   skipped: SkippedOccurrence[],
+  cutoffDate: string,
   fromDate: string,
   toDate: string
 ): Record<string, DayBalance> {
-  const txMap = buildTxMap(recurring, adhoc, skipped, fromDate, toDate)
+  const todayStr = new Date().toISOString().slice(0, 10)
+
+  // Build tx map only from cutoffDate onwards — pre-cutoff transactions are ignored
+  const txMap = buildTxMap(recurring, adhoc, skipped, cutoffDate, toDate)
 
   const allDates: string[] = []
   const cur = new Date(fromDate + 'T00:00:00')
@@ -74,29 +86,40 @@ export function computeAllDailyBalances(
 
   const result: Record<string, DayBalance> = {}
 
-  // Forward pass: from startDate to toDate
-  let fwdBal = startBalance
-  let started = false
+  // Adjustment: sum uncompleted transactions from cutoffDate up to (but not including) startDate.
+  // These haven't cleared the bank yet, so they aren't in startBalance.
+  let adjustment = 0
+  for (const date of allDates) {
+    if (date < cutoffDate || date >= startDate) continue
+    const { deposits, expenses } = txMap.get(date) ?? { deposits: [], expenses: [] }
+    adjustment += deposits.filter(t => !t.skipped).reduce((s, t) => s + t.amount, 0)
+    adjustment -= expenses.filter(t => !t.skipped).reduce((s, t) => s + t.amount, 0)
+  }
+
+  // Forward pass from startDate: project balance using uncompleted transactions.
+  // Days before today get endBalance: null (display badges only, no balance shown).
+  let fwdBal = startBalance + adjustment
   for (const date of allDates) {
     if (date < startDate) continue
-    if (!started) started = true
     const { deposits, expenses } = txMap.get(date) ?? { deposits: [], expenses: [] }
     const net = deposits.filter(t => !t.skipped).reduce((s, t) => s + t.amount, 0)
              - expenses.filter(t => !t.skipped).reduce((s, t) => s + t.amount, 0)
     fwdBal += net
-    result[date] = { deposits, expenses, endBalance: fwdBal, isToday: date === startDate, isPast: false }
+    const isPast = date < todayStr
+    result[date] = {
+      deposits,
+      expenses,
+      endBalance: isPast ? null : fwdBal,
+      isToday: date === todayStr,
+      isPast,
+    }
   }
 
-  // Backward pass: from day before startDate down to fromDate
-  // B(d-1) = B(d) - D(d) + E(d); anchor is B(startDate - 1) = startBalance
-  let bwdBal = startBalance
-  for (let i = allDates.indexOf(startDate) - 1; i >= 0; i--) {
-    const date = allDates[i]
+  // Past days from cutoffDate to startDate-1: show badges but no balance
+  for (const date of allDates) {
+    if (date < cutoffDate || date >= startDate) continue
     const { deposits, expenses } = txMap.get(date) ?? { deposits: [], expenses: [] }
-    result[date] = { deposits, expenses, endBalance: bwdBal, isToday: false, isPast: true }
-    bwdBal = bwdBal
-      - deposits.filter(t => !t.skipped).reduce((s, t) => s + t.amount, 0)
-      + expenses.filter(t => !t.skipped).reduce((s, t) => s + t.amount, 0)
+    result[date] = { deposits, expenses, endBalance: null, isToday: false, isPast: true }
   }
 
   return result

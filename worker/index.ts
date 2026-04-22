@@ -38,9 +38,11 @@ function matchPath(
 
 async function getBalance(env: Env): Promise<Response> {
   const row = await env.DB.prepare(
-    'SELECT amount, balance_date, updated_at FROM account_balance WHERE id = 1'
+    `SELECT amount, balance_date, updated_at,
+            strftime('%Y-%m-01', COALESCE(created_at, date('now'))) AS cutoff_date
+     FROM account_balance WHERE id = 1`
   ).first()
-  return json(row ?? { amount: 0, balance_date: null, updated_at: null })
+  return json(row ?? { amount: 0, balance_date: null, updated_at: null, cutoff_date: null })
 }
 
 async function putBalance(env: Env, req: Request): Promise<Response> {

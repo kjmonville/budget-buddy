@@ -22,7 +22,7 @@ function getRangeFromToday(): { fromDate: string; toDate: string } {
 }
 
 export default function App() {
-  const [balance, setBalance] = useState<AccountBalance>({ amount: 0, balance_date: today, updated_at: null })
+  const [balance, setBalance] = useState<AccountBalance>({ amount: 0, balance_date: today, updated_at: null, cutoff_date: null })
   const [recurring, setRecurring] = useState<RecurringTransaction[]>([])
   const [adhoc, setAdhoc] = useState<AdhocTransaction[]>([])
   const [skipped, setSkipped] = useState<SkippedOccurrence[]>([])
@@ -54,12 +54,15 @@ export default function App() {
 
   const dailyBalances = useMemo(() => {
     const anchorDate = balance.balance_date ?? today
+    // Fallback: first of current month if cutoff not yet set
+    const cutoffDate = balance.cutoff_date ?? today.slice(0, 7) + '-01'
     return computeAllDailyBalances(
       balance.amount,
       anchorDate,
       recurring,
       adhoc,
       skipped,
+      cutoffDate,
       fromDate,
       toDate
     )
@@ -82,7 +85,7 @@ export default function App() {
 
   // Balance save
   const handleSaveBalance = useCallback(async (amount: number) => {
-    const newBalance = { amount, balance_date: today, updated_at: new Date().toISOString() }
+    const newBalance = { ...balance, amount, balance_date: today, updated_at: new Date().toISOString() }
     setBalance(newBalance)
     await api.setBalance(amount, today)
   }, [])

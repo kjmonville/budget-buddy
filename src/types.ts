@@ -35,6 +35,7 @@ export interface AccountBalance {
   amount: number
   balance_date: string | null
   updated_at: string | null
+  cutoff_date: string | null
 }
 
 export interface TxEntry {
@@ -57,7 +58,7 @@ export interface SkippedOccurrence {
 export interface DayBalance {
   deposits: TxEntry[]
   expenses: TxEntry[]
-  endBalance: number
+  endBalance: number | null
   isToday: boolean
   isPast: boolean
 }
