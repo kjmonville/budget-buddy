@@ -307,6 +307,11 @@ export default function App() {
               value={balance.amount}
               balanceDate={balance.balance_date}
               onSave={handleSaveBalance}
+              onDateClick={() => {
+                const d = new Date((balance.balance_date ?? today) + 'T00:00:00')
+                setViewYear(d.getFullYear())
+                setViewMonth(d.getMonth() + 1)
+              }}
             />
             {lowestBalance && (
               <div className="flex items-baseline gap-1.5 whitespace-nowrap">
@@ -314,9 +319,16 @@ export default function App() {
                 <span className={`text-sm font-mono font-semibold tabular-nums ${lowestBalance.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>
                   {lowestBalance.amount < 0 ? '-' : ''}${Math.abs(lowestBalance.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
+                <button
+                  onClick={() => {
+                    const d = new Date(lowestBalance.date + 'T00:00:00')
+                    setViewYear(d.getFullYear())
+                    setViewMonth(d.getMonth() + 1)
+                  }}
+                  className="text-xs text-gray-400 dark:text-gray-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                >
                   on {new Date(lowestBalance.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </span>
+                </button>
               </div>
             )}
             <div className="flex items-center gap-2">

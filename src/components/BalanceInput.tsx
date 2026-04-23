@@ -4,9 +4,10 @@ interface Props {
   value: number
   balanceDate: string | null
   onSave: (amount: number) => void
+  onDateClick?: () => void
 }
 
-export default function BalanceInput({ value, balanceDate, onSave }: Props) {
+export default function BalanceInput({ value, balanceDate, onSave, onDateClick }: Props) {
   const [raw, setRaw] = useState(value.toFixed(2))
   const [saving, setSaving] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -55,7 +56,12 @@ export default function BalanceInput({ value, balanceDate, onSave }: Props) {
       </div>
       {saving && <span className="text-xs text-indigo-500 animate-pulse">Saving…</span>}
       {!saving && formatted && (
-        <span className="text-xs text-gray-400 dark:text-gray-500">as of {formatted}</span>
+        <button
+          onClick={onDateClick}
+          className="text-xs text-gray-400 dark:text-gray-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+        >
+          as of {formatted}
+        </button>
       )}
     </div>
   )
