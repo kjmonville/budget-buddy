@@ -94,6 +94,19 @@ export default function App() {
     )
   }, [balance, recurring, adhoc, skipped, fromDate, toDate])
 
+  const lowestBalance = useMemo(() => {
+    let min: number | null = null
+    let minDate: string | null = null
+    for (const [date, day] of Object.entries(dailyBalances)) {
+      if (day.endBalance === null) continue
+      if (min === null || day.endBalance < min) {
+        min = day.endBalance
+        minDate = date
+      }
+    }
+    return min !== null ? { amount: min, date: minDate! } : null
+  }, [dailyBalances])
+
   // Navigation
   const prevMonth = useCallback(() => {
     setViewMonth((m) => {
@@ -295,6 +308,17 @@ export default function App() {
               balanceDate={balance.balance_date}
               onSave={handleSaveBalance}
             />
+            {lowestBalance && (
+              <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Low Balance</span>
+                <span className={`text-sm font-mono font-semibold tabular-nums ${lowestBalance.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                  {lowestBalance.amount < 0 ? '-' : ''}${Math.abs(lowestBalance.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  on {new Date(lowestBalance.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setRecurringPanelOpen(true)}
