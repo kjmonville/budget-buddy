@@ -1,6 +1,10 @@
 import type { AdhocTransaction, DayBalance, RecurringTransaction, SkippedOccurrence, TxEntry } from '../types'
 import { expandRecurring } from './recurrence'
 
+export function localDateStr(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function buildTxMap(
   recurring: RecurringTransaction[],
   adhoc: AdhocTransaction[],
@@ -71,7 +75,7 @@ export function computeAllDailyBalances(
   fromDate: string,
   toDate: string
 ): Record<string, DayBalance> {
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = localDateStr()
 
   // Build tx map only from cutoffDate onwards — pre-cutoff transactions are ignored
   const txMap = buildTxMap(recurring, adhoc, skipped, cutoffDate, toDate)

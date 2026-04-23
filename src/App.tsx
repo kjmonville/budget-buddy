@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AdhocTransaction, AccountBalance, RecurringTransaction, SkippedOccurrence, TxEntry, User } from './types'
 import * as api from './lib/api'
-import { computeAllDailyBalances } from './lib/balance'
+import { computeAllDailyBalances, localDateStr } from './lib/balance'
 import { applyTheme, getStoredTheme, type Theme } from './lib/theme'
 import BalanceInput from './components/BalanceInput'
 import CalendarView from './components/CalendarView'
@@ -9,7 +9,7 @@ import TransactionModal from './components/TransactionModal'
 import RecurringList from './components/RecurringList'
 import LoginPage from './components/LoginPage'
 
-const today = new Date().toISOString().slice(0, 10)
+const today = localDateStr()
 const [todayYear, todayMonth] = today.split('-').map(Number)
 
 function getRangeFromToday(): { fromDate: string; toDate: string } {
