@@ -10,23 +10,30 @@ interface Props {
 export default function BalanceInput({ value, balanceDate, onSave, onDateClick }: Props) {
   const [raw, setRaw] = useState(value.toFixed(2))
   const [saving, setSaving] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedRef = useRef(false)
 
   useEffect(() => {
     setRaw(value.toFixed(2))
   }, [value])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRaw(e.target.value)
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      const parsed = parseFloat(e.target.value.replace(/,/g, ''))
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const parsed = parseFloat((e.target as HTMLInputElement).value.replace(/,/g, ''))
       if (!isNaN(parsed)) {
+        savedRef.current = true
         setSaving(true)
         onSave(parsed)
         setTimeout(() => setSaving(false), 600)
+        ;(e.target as HTMLInputElement).blur()
       }
-    }, 800)
+    }
+  }
+
+  const handleBlur = () => {
+    if (!savedRef.current) {
+      setRaw(value.toFixed(2))
+    }
+    savedRef.current = false
   }
 
   const formatted = balanceDate
@@ -47,10 +54,13 @@ export default function BalanceInput({ value, balanceDate, onSave, onDateClick }
           $
         </span>
         <input
-          type="number"
-          step="0.01"
+          type="text"
+          inputMode="decimal"
           value={raw}
-          onChange={handleChange}
+          onChange={e => setRaw(e.target.value)}
+          onFocus={e => e.target.select()}
+          onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
           className="pl-7 pr-3 py-2 w-40 border border-gray-300 dark:border-gray-600 rounded-lg text-right font-mono text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400"
         />
       </div>
