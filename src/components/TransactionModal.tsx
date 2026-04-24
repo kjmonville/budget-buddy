@@ -32,6 +32,7 @@ const DEFAULT_RECURRING: Omit<RecurringTransaction, 'id' | 'active' | 'created_a
   day_of_week: null,
   nth_week: null,
   biweekly_anchor: null,
+  notes: null,
 }
 
 export default function TransactionModal({
@@ -59,11 +60,15 @@ export default function TransactionModal({
   const [rNthWeek, setRNthWeek] = useState(editRecurring?.nth_week ?? 1)
   const [rAnchor, setRAnchor] = useState(editRecurring?.biweekly_anchor ?? '')
 
+  // Recurring notes state
+  const [rNotes, setRNotes] = useState(editRecurring?.notes ?? '')
+
   // One-time form state
   const [aType, setAType] = useState<TransactionType>('expense')
   const [aName, setAName] = useState('')
   const [aAmount, setAAmount] = useState('')
   const [aDate, setADate] = useState(initialDate ?? new Date().toISOString().slice(0, 10))
+  const [aNotes, setANotes] = useState(editAdhoc?.notes ?? '')
 
   useEffect(() => {
     if (!open) return
@@ -75,6 +80,7 @@ export default function TransactionModal({
       setAName(editAdhoc.name)
       setAAmount(String(editAdhoc.amount))
       setADate(editAdhoc.date)
+      setANotes(editAdhoc.notes ?? '')
       return
     }
 
@@ -91,12 +97,14 @@ export default function TransactionModal({
     setRDayOfWeek(editRecurring?.day_of_week ?? 5)
     setRNthWeek(editRecurring?.nth_week ?? 1)
     setRAnchor(editRecurring?.biweekly_anchor ?? '')
+    setRNotes(editRecurring?.notes ?? '')
 
     // Reset one-time fields
     setAType('expense')
     setAName('')
     setAAmount('')
     setADate(initialDate ?? new Date().toISOString().slice(0, 10))
+    setANotes('')
   }, [open, initialDate, editRecurring, editAdhoc])
 
   if (!open) return null
@@ -121,6 +129,7 @@ export default function TransactionModal({
           day_of_week: ['weekly', 'biweekly', 'monthly_nth_weekday'].includes(rRecType) ? rDayOfWeek : null,
           nth_week: rRecType === 'monthly_nth_weekday' ? rNthWeek : null,
           biweekly_anchor: rRecType === 'biweekly' ? rAnchor || null : null,
+          notes: rNotes.trim() || null,
         }
         await onSaveRecurring(data)
       } else {
@@ -128,7 +137,7 @@ export default function TransactionModal({
         if (!aName.trim()) throw new Error('Name is required')
         if (isNaN(amt) || amt <= 0) throw new Error('Amount must be a positive number')
         if (!aDate) throw new Error('Date is required')
-        const adhocData = { type: aType, name: aName.trim(), amount: amt, date: aDate }
+        const adhocData = { type: aType, name: aName.trim(), amount: amt, date: aDate, notes: aNotes.trim() || null }
         if (editAdhoc && onUpdateAdhoc) {
           await onUpdateAdhoc(adhocData)
         } else {
@@ -273,6 +282,14 @@ export default function TransactionModal({
                   </select>
                 </Field>
               )}
+              <Field label="Notes">
+                <textarea
+                  rows={2}
+                  value={rNotes}
+                  onChange={(e) => setRNotes(e.target.value)}
+                  className={INPUT_CLS}
+                />
+              </Field>
             </>
           ) : (
             <>
@@ -293,6 +310,14 @@ export default function TransactionModal({
                   type="date"
                   value={aDate}
                   onChange={(e) => setADate(e.target.value)}
+                  className={INPUT_CLS}
+                />
+              </Field>
+              <Field label="Notes">
+                <textarea
+                  rows={2}
+                  value={aNotes}
+                  onChange={(e) => setANotes(e.target.value)}
                   className={INPUT_CLS}
                 />
               </Field>
