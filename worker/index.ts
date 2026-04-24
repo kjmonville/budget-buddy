@@ -230,6 +230,7 @@ async function postRecurring(env: Env, req: Request, userId: string): Promise<Re
     day_of_week?: number | null
     nth_week?: number | null
     biweekly_anchor?: string | null
+    notes?: string | null
   }>()
 
   if (!body.type || !body.name || typeof body.amount !== 'number' || !body.recurrence_type) {
@@ -239,15 +240,15 @@ async function postRecurring(env: Env, req: Request, userId: string): Promise<Re
   const id = crypto.randomUUID()
   await env.DB.prepare(
     `INSERT INTO recurring_transactions
-       (id, user_id, type, name, amount, recurrence_type, day_of_month, month, day_of_week, nth_week, biweekly_anchor)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, user_id, type, name, amount, recurrence_type, day_of_month, month, day_of_week, nth_week, biweekly_anchor, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       id, userId,
       body.type, body.name, body.amount, body.recurrence_type,
       body.day_of_month ?? null, body.month ?? null,
       body.day_of_week ?? null, body.nth_week ?? null,
-      body.biweekly_anchor ?? null
+      body.biweekly_anchor ?? null, body.notes ?? null
     )
     .run()
 
@@ -273,6 +274,7 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
     day_of_week?: number | null
     nth_week?: number | null
     biweekly_anchor?: string | null
+    notes?: string | null
   }>()
 
   await env.DB.prepare(
@@ -285,7 +287,8 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
          month = ?,
          day_of_week = ?,
          nth_week = ?,
-         biweekly_anchor = ?
+         biweekly_anchor = ?,
+         notes = ?
      WHERE id = ? AND user_id = ?`
   )
     .bind(
@@ -293,7 +296,7 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
       body.amount ?? null, body.recurrence_type ?? null,
       body.day_of_month ?? null, body.month ?? null,
       body.day_of_week ?? null, body.nth_week ?? null,
-      body.biweekly_anchor ?? null,
+      body.biweekly_anchor ?? null, body.notes ?? null,
       id, userId
     )
     .run()
@@ -327,6 +330,7 @@ async function postAdhoc(env: Env, req: Request, userId: string): Promise<Respon
     name?: string
     amount?: unknown
     date?: string
+    notes?: string | null
   }>()
 
   if (!body.type || !body.name || typeof body.amount !== 'number' || !body.date) {
@@ -335,8 +339,8 @@ async function postAdhoc(env: Env, req: Request, userId: string): Promise<Respon
 
   const id = crypto.randomUUID()
   await env.DB.prepare(
-    'INSERT INTO adhoc_transactions (id, user_id, type, name, amount, date) VALUES (?, ?, ?, ?, ?, ?)'
-  ).bind(id, userId, body.type, body.name, body.amount, body.date).run()
+    'INSERT INTO adhoc_transactions (id, user_id, type, name, amount, date, notes) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).bind(id, userId, body.type, body.name, body.amount, body.date, body.notes ?? null).run()
 
   const row = await env.DB.prepare(
     'SELECT * FROM adhoc_transactions WHERE id = ?'
@@ -349,13 +353,14 @@ async function putAdhoc(env: Env, req: Request, id: string, userId: string): Pro
     'SELECT id FROM adhoc_transactions WHERE id = ? AND user_id = ?'
   ).bind(id, userId).first()
   if (!existing) return notFound()
-  const body = await req.json<{ type?: string; name?: string; amount?: number; date?: string }>()
+  const body = await req.json<{ type?: string; name?: string; amount?: number; date?: string; notes?: string | null }>()
   await env.DB.prepare(
     `UPDATE adhoc_transactions
      SET type = COALESCE(?, type), name = COALESCE(?, name),
-         amount = COALESCE(?, amount), date = COALESCE(?, date)
+         amount = COALESCE(?, amount), date = COALESCE(?, date),
+         notes = ?
      WHERE id = ? AND user_id = ?`
-  ).bind(body.type ?? null, body.name ?? null, body.amount ?? null, body.date ?? null, id, userId).run()
+  ).bind(body.type ?? null, body.name ?? null, body.amount ?? null, body.date ?? null, body.notes ?? null, id, userId).run()
   const row = await env.DB.prepare(
     'SELECT * FROM adhoc_transactions WHERE id = ?'
   ).bind(id).first()

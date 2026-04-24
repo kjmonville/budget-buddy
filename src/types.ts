@@ -23,6 +23,7 @@ export interface RecurringTransaction {
   day_of_week: number | null
   nth_week: number | null
   biweekly_anchor: string | null
+  notes: string | null
   active: number
   created_at: string
 }
@@ -33,6 +34,7 @@ export interface AdhocTransaction {
   name: string
   amount: number
   date: string
+  notes: string | null
   created_at: string
 }
 
