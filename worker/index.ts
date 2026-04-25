@@ -87,7 +87,13 @@ async function verifyJWT(token: string, secret: string): Promise<{ sub: string; 
   }
 }
 
-function getTokenFromCookie(req: Request): string | null {
+function getTokenFromRequest(req: Request): string | null {
+  // Prefer Authorization: Bearer <jwt> (native clients), fall back to cookie (web).
+  const auth = req.headers.get('Authorization') ?? ''
+  if (auth.startsWith('Bearer ')) {
+    const t = auth.slice(7).trim()
+    if (t) return t
+  }
   const cookie = req.headers.get('Cookie') ?? ''
   const match = cookie.match(/(?:^|;\s*)bb_token=([^;]+)/)
   return match ? match[1] : null
@@ -102,7 +108,7 @@ function clearAuthCookie(secure: boolean): string {
 }
 
 async function requireAuth(req: Request, env: Env): Promise<{ sub: string; email: string } | Response> {
-  const token = getTokenFromCookie(req)
+  const token = getTokenFromRequest(req)
   if (!token) return json({ error: 'Unauthorized' }, 401)
   const user = await verifyJWT(token, env.JWT_SECRET)
   if (!user) return json({ error: 'Unauthorized' }, 401)
@@ -130,7 +136,7 @@ async function postRegister(env: Env, req: Request): Promise<Response> {
     { sub: id, email: body.email.toLowerCase(), exp: Math.floor(Date.now() / 1000) + 604800 },
     env.JWT_SECRET
   )
-  return new Response(JSON.stringify({ ok: true, email: body.email.toLowerCase() }), {
+  return new Response(JSON.stringify({ ok: true, email: body.email.toLowerCase(), token }), {
     status: 201,
     headers: {
       'Content-Type': 'application/json',
@@ -154,7 +160,7 @@ async function postLogin(env: Env, req: Request): Promise<Response> {
     { sub: user.id, email: user.email, exp: Math.floor(Date.now() / 1000) + 604800 },
     env.JWT_SECRET
   )
-  return new Response(JSON.stringify({ ok: true, email: user.email }), {
+  return new Response(JSON.stringify({ ok: true, email: user.email, token }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
@@ -177,7 +183,7 @@ async function postLogout(req: Request): Promise<Response> {
 }
 
 async function getMe(env: Env, req: Request): Promise<Response> {
-  const token = getTokenFromCookie(req)
+  const token = getTokenFromRequest(req)
   if (!token) return json({ error: 'Unauthorized' }, 401)
   const user = await verifyJWT(token, env.JWT_SECRET)
   if (!user) return json({ error: 'Unauthorized' }, 401)
@@ -420,7 +426,7 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
       })
     }
