@@ -243,6 +243,34 @@ export default function App() {
     setAdhoc((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
+  // Edit entry from calendar context menu
+  const handleCalendarEdit = useCallback((entry: TxEntry) => {
+    if (entry.source === 'recurring') {
+      const r = recurring.find((r) => r.id === entry.id)
+      if (!r) return
+      setEditingRecurring(r)
+      setEditingAdhoc(undefined)
+      setModalDate(undefined)
+      setModalOpen(true)
+    } else {
+      const t = adhoc.find((t) => t.id === entry.id)
+      if (!t) return
+      setEditingAdhoc(t)
+      setEditingRecurring(undefined)
+      setModalDate(undefined)
+      setModalOpen(true)
+    }
+  }, [recurring, adhoc])
+
+  // Delete entry from calendar context menu
+  const handleCalendarDelete = useCallback((entry: TxEntry) => {
+    if (entry.source === 'recurring') {
+      handleDeleteRecurring(entry.id)
+    } else {
+      handleDeleteAdhoc(entry.id)
+    }
+  }, [handleDeleteRecurring, handleDeleteAdhoc])
+
   // Checking auth
   if (user === undefined) {
     return (
@@ -357,6 +385,8 @@ export default function App() {
           balances={dailyBalances}
           onDayClick={handleDayClick}
           onToggleSkip={handleToggleSkip}
+          onEdit={handleCalendarEdit}
+          onDelete={handleCalendarDelete}
           onPrev={prevMonth}
           onNext={nextMonth}
         />
