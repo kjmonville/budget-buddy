@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { DayBalance, TxEntry } from '../types'
 
 const fmt = (n: number) =>
@@ -10,14 +11,30 @@ interface Props {
   isCurrentMonth: boolean
   onClick: (date: string) => void
   onToggleSkip: (entry: TxEntry, date: string) => void
+  onEdit: (entry: TxEntry) => void
+  onDelete: (entry: TxEntry) => void
 }
 
-export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, onToggleSkip }: Props) {
+export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, onToggleSkip, onEdit, onDelete }: Props) {
   const isToday = data?.isToday ?? false
   const isPast = data?.isPast ?? (!data && !isCurrentMonth)
   const balance = data?.endBalance ?? null
   const negative = balance != null && balance < 0
   const hasTransactions = (data?.deposits.length ?? 0) + (data?.expenses.length ?? 0) > 0
+
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; entry: TxEntry } | null>(null)
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null) }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [contextMenu])
 
   return (
     <div
@@ -46,10 +63,24 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
       {isCurrentMonth && hasTransactions && (
         <div className="flex flex-col gap-0.5 flex-1 overflow-hidden">
           {data!.deposits.map((t) => (
-            <TxBadge key={t.id} entry={t} date={date} isDeposit onToggleSkip={onToggleSkip} />
+            <TxBadge
+              key={t.id}
+              entry={t}
+              date={date}
+              isDeposit
+              onToggleSkip={onToggleSkip}
+              onContextMenu={(entry, x, y) => setContextMenu({ x, y, entry })}
+            />
           ))}
           {data!.expenses.map((t) => (
-            <TxBadge key={t.id} entry={t} date={date} isDeposit={false} onToggleSkip={onToggleSkip} />
+            <TxBadge
+              key={t.id}
+              entry={t}
+              date={date}
+              isDeposit={false}
+              onToggleSkip={onToggleSkip}
+              onContextMenu={(entry, x, y) => setContextMenu({ x, y, entry })}
+            />
           ))}
         </div>
       )}
@@ -65,6 +96,29 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
           {negative ? '-' : ''}${fmt(Math.abs(balance))}
         </div>
       )}
+
+      {/* Context menu */}
+      {contextMenu && (
+        <div
+          style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y }}
+          className="z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[120px]"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => { setContextMenu(null); onEdit(contextMenu.entry) }}
+            className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => { setContextMenu(null); onDelete(contextMenu.entry) }}
+            className="w-full text-left px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            Delete
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -74,15 +128,18 @@ function TxBadge({
   date,
   isDeposit,
   onToggleSkip,
+  onContextMenu,
 }: {
   entry: TxEntry
   date: string
   isDeposit: boolean
   onToggleSkip: (entry: TxEntry, date: string) => void
+  onContextMenu: (entry: TxEntry, x: number, y: number) => void
 }) {
   return (
     <div
       onClick={(e) => { e.stopPropagation(); onToggleSkip(entry, date) }}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(entry, e.clientX, e.clientY) }}
       title={entry.skipped ? 'Click to re-enable' : 'Click to mark complete'}
       className={[
         'text-[10px] leading-tight rounded px-1 flex justify-between gap-1 cursor-pointer select-none',
@@ -98,3 +155,4 @@ function TxBadge({
     </div>
   )
 }
+
