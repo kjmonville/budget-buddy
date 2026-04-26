@@ -337,7 +337,15 @@ export default function App() {
         <div className="max-w-5xl mx-auto px-4">
           {/* Row 1: logo + theme + user */}
           <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700/60">
-            <span className="text-xl font-bold text-indigo-600">💰 Budget Buddy</span>
+            <span className="flex items-center gap-2.5">
+                <img src="/assets/budget-buddy-mark.svg" alt="" width="28" height="28" />
+                <span
+                  className="text-xl font-bold text-indigo-600"
+                  style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '-0.025em' }}
+                >
+                  Budget Buddy
+                </span>
+              </span>
             <div className="flex items-center gap-3">
               <ThemeToggle value={theme} onChange={handleThemeChange} />
               <span className="text-xs text-gray-400 dark:text-gray-500">{user.email}</span>

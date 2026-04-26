@@ -1,0 +1,16 @@
+{
+  "name": "Budget Buddy",
+  "short_name": "Budget Buddy",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#6366F1",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/assets/budget-buddy-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -38,7 +38,15 @@ export default function LoginPage({ onSuccess }: Props) {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <span className="text-3xl font-bold text-indigo-600">💰 Budget Buddy</span>
+          <span className="flex items-center justify-center gap-3">
+            <img src="/assets/budget-buddy-mark.svg" alt="" width="36" height="36" />
+            <span
+              className="text-3xl font-bold text-indigo-600"
+              style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '-0.025em' }}
+            >
+              Budget Buddy
+            </span>
+          </span>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
