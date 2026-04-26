@@ -6,3 +6,6 @@ dist
 .env.*
 *.tsbuildinfo
 .dev.vars
+
+# Xcode
+*.xcuserstate
