@@ -22,7 +22,7 @@ struct ForecastChart: View {
                 .foregroundStyle(Color.primary)
                 .interpolationMethod(.monotone)
 
-                if p.date == lowDate {
+                if Calendar.ymdString(p.date) == lowDate {
                     PointMark(
                         x: .value("Day", p.date),
                         y: .value("Balance", p.balance)

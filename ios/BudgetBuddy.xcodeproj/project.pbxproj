@@ -5,6 +5,7 @@
 	};
 	objectVersion = 56;
 	objects = {
+
 /* Begin PBXBuildFile section */
 		0A00000001 /* BudgetBuddyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000001 /* BudgetBuddyApp.swift */; };
 		0A00000002 /* Transaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000002 /* Transaction.swift */; };
@@ -77,19 +78,11 @@
 			);
 			sourceTree = "<group>";
 		};
-		0A04000003 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				0A02000001 /* BudgetBuddy.app */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
 		0A04000002 /* BudgetBuddy */ = {
 			isa = PBXGroup;
 			children = (
 				0A01000001 /* BudgetBuddyApp.swift */,
-				0A04000004 /* Models */,
+				0A04000004,
 				0A04000005 /* Networking */,
 				0A04000006 /* Logic */,
 				0A04000007 /* Views */,
@@ -100,7 +93,15 @@
 			path = BudgetBuddy;
 			sourceTree = "<group>";
 		};
-		0A04000004 /* Models */ = {
+		0A04000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0A02000001 /* BudgetBuddy.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0A04000004 = {
 			isa = PBXGroup;
 			children = (
 				0A01000002 /* Transaction.swift */,
@@ -108,7 +109,6 @@
 				0A01000004 /* SkippedOccurrence.swift */,
 				0A01000005 /* User.swift */,
 			);
-			path = Models;
 			sourceTree = "<group>";
 		};
 		0A04000005 /* Networking */ = {
@@ -168,7 +168,7 @@
 /* Begin PBXNativeTarget section */
 		0A05000001 /* BudgetBuddy */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0A06000001;
+			buildConfigurationList = 0A06000001 /* Build configuration list for PBXNativeTarget "BudgetBuddy" */;
 			buildPhases = (
 				0A03000002 /* Sources */,
 				0A03000001 /* Frameworks */,
@@ -181,7 +181,7 @@
 			name = BudgetBuddy;
 			productName = BudgetBuddy;
 			productReference = 0A02000001 /* BudgetBuddy.app */;
-			productType = com.apple.product.type.application;
+			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
@@ -198,7 +198,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 0A06000002;
+			buildConfigurationList = 0A06000002 /* Build configuration list for PBXProject "BudgetBuddy" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -395,6 +395,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "BudgetBuddy/Preview Content";
+				DEVELOPMENT_TEAM = CPN44JHG82;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_BB_API_BASE = "http://localhost:5173/api";
@@ -427,6 +428,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "BudgetBuddy/Preview Content";
+				DEVELOPMENT_TEAM = CPN44JHG82;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_BB_API_BASE = "http://localhost:5173/api";
@@ -455,20 +457,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		0A06000002 /* Build configuration list for PBXProject "BudgetBuddy" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				0A08000001 /* Debug */,
-				0A08000002 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		0A06000001 /* Build configuration list for PBXNativeTarget "BudgetBuddy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0A08000003 /* Debug */,
 				0A08000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0A06000002 /* Build configuration list for PBXProject "BudgetBuddy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0A08000001 /* Debug */,
+				0A08000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
