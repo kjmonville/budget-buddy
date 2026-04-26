@@ -18,9 +18,15 @@ struct LoginView: View {
             Spacer()
 
             VStack(spacing: 6) {
-                Text("💰 Budget Buddy")
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(Color.bbIndigo)
+                HStack(spacing: 10) {
+                    Image("BudgetBuddyMark")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 36, height: 36)
+                    Text("Budget Buddy")
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(Color.bbIndigo)
+                }
                 Text(mode == .login ? "Sign in to continue" : "Create your account")
                     .foregroundStyle(.secondary)
             }
