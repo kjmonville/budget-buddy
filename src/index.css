@@ -9,3 +9,20 @@ body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
 }
+
+/* Chart CSS variables — used by inline SVG which can't consume Tailwind classes */
+:root {
+  --chart-fg: theme(colors.gray.900);
+  --chart-muted: theme(colors.gray.500);
+  --chart-border: theme(colors.gray.200);
+  --chart-surface: #ffffff;
+  --chart-primary: theme(colors.indigo.600);
+  --chart-low: theme(colors.amber.400);
+}
+
+.dark {
+  --chart-fg: theme(colors.gray.100);
+  --chart-muted: theme(colors.gray.400);
+  --chart-border: theme(colors.gray.700);
+  --chart-surface: theme(colors.gray.800);
+}

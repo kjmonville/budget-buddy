@@ -4,6 +4,7 @@ import * as api from './lib/api'
 import { computeAllDailyBalances, localDateStr } from './lib/balance'
 import { applyTheme, getStoredTheme, type Theme } from './lib/theme'
 import BalanceInput from './components/BalanceInput'
+import BalancePanel from './components/BalancePanel'
 import CalendarView from './components/CalendarView'
 import TransactionModal from './components/TransactionModal'
 import RecurringList from './components/RecurringList'
@@ -43,6 +44,7 @@ export default function App() {
   const [editingAdhoc, setEditingAdhoc] = useState<AdhocTransaction | undefined>()
   const [recurringPanelOpen, setRecurringPanelOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(getStoredTheme)
+  const [chartRange, setChartRange] = useState(30)
 
   // Apply theme on mount and listen for system preference changes
   useEffect(() => {
@@ -106,6 +108,24 @@ export default function App() {
     }
     return min !== null ? { amount: min, date: minDate! } : null
   }, [dailyBalances])
+
+  const chartSeries = useMemo(() => {
+    const endDate = new Date()
+    endDate.setDate(endDate.getDate() + chartRange - 1)
+    const endStr = localDateStr(endDate)
+    return Object.entries(dailyBalances)
+      .filter(([date, day]) => date >= today && date <= endStr && day.endBalance !== null)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, day]) => ({
+        date: new Date(date + 'T00:00:00'),
+        balance: day.endBalance!,
+      }))
+  }, [dailyBalances, chartRange])
+
+  const chartTodayIdx = useMemo(
+    () => chartSeries.findIndex((p) => localDateStr(p.date) === today),
+    [chartSeries]
+  )
 
   // Navigation
   const prevMonth = useCallback(() => {
@@ -377,8 +397,14 @@ export default function App() {
         </div>
       </header>
 
-      {/* Calendar */}
-      <main className="max-w-5xl mx-auto px-4 py-6">
+      {/* Main content */}
+      <main className="max-w-5xl mx-auto px-4 py-6 flex flex-col gap-6">
+        <BalancePanel
+          series={chartSeries}
+          todayIndex={chartTodayIdx}
+          range={chartRange}
+          onRangeChange={setChartRange}
+        />
         <CalendarView
           year={viewYear}
           month={viewMonth}
