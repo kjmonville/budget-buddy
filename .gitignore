@@ -9,3 +9,6 @@ dist
 
 # Xcode
 *.xcuserstate
+
+# macOS
+.DS_Store
