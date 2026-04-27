@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Budget Buddy">
+  <title>Budget Buddy (monochrome)</title>
+  <circle cx="32" cy="38" r="22" fill="currentColor"></circle>
+  <path d="M20 14 L44 14 L40 22 L24 22 Z" fill="currentColor" opacity="0.85"></path>
+  <circle cx="32" cy="38" r="13" fill="#FFFFFF"></circle>
+  <text x="32" y="43" text-anchor="middle" font-family="&#39;Space Grotesk&#39;, system-ui, sans-serif" font-weight="700" font-size="13" fill="currentColor" letter-spacing="-0.5">BB</text>
+</svg>
