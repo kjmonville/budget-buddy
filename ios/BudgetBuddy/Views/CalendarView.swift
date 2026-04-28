@@ -50,7 +50,7 @@ struct CalendarView: View {
                     Menu {
                         Button("Add transaction", systemImage: "plus") { addOpen = true }
                         Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                            auth.clear()
+                            auth.logout()
                             store.reset()
                         }
                     } label: {

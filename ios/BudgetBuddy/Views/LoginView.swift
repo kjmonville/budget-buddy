@@ -8,6 +8,7 @@ struct LoginView: View {
     @State private var password = ""
     @State private var error = ""
     @State private var working = false
+    @State private var biometricError = ""
 
     enum Mode { case login, register }
 
@@ -68,16 +69,43 @@ struct LoginView: View {
             .disabled(working || email.isEmpty || password.isEmpty)
             .padding(.horizontal)
 
-            Button {
-                mode = (mode == .login) ? .register : .login
-                error = ""
-            } label: {
-                Text(mode == .login ? "Need an account? Sign up" : "Have an account? Sign in")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            if auth.biometricEnabled {
+                VStack(spacing: 8) {
+                    Button(action: signInWithBiometrics) {
+                        Label("Sign in with Face ID", systemImage: "faceid")
+                            .font(.footnote.bold())
+                            .foregroundStyle(Color.bbIndigo)
+                    }
+                    if !biometricError.isEmpty {
+                        Text(biometricError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                }
+            } else {
+                Button {
+                    mode = (mode == .login) ? .register : .login
+                    error = ""
+                } label: {
+                    Text(mode == .login ? "Need an account? Sign up" : "Have an account? Sign in")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer()
+        }
+    }
+
+    private func signInWithBiometrics() {
+        biometricError = ""
+        Task {
+            let success = await auth.unlockWithBiometrics()
+            if !success {
+                biometricError = "Face ID failed. Enter your password to sign in."
+            }
         }
     }
 

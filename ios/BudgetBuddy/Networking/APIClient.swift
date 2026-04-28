@@ -133,7 +133,7 @@ struct APIClient: @unchecked Sendable {
             throw APIError.http(0, "Invalid response")
         }
         if http.statusCode == 401 {
-            await MainActor.run { auth.clear() }
+            await MainActor.run { auth.logout() }
             throw APIError.unauthorized
         }
         guard (200..<300).contains(http.statusCode) else {

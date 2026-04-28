@@ -3,12 +3,17 @@ import SwiftUI
 struct RootView: View {
     @Environment(AuthStore.self) private var auth
     @Environment(AppStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
+
+    @State private var showBiometricPrompt = false
 
     private var api: APIClient { APIClient(baseURL: Config.apiBase, auth: auth) }
 
     var body: some View {
         Group {
-            if auth.isAuthenticated {
+            if auth.isLocked {
+                LockView()
+            } else if auth.isAuthenticated {
                 CalendarView()
                     .task { await store.load(api: api) }
             } else {
@@ -16,6 +21,20 @@ struct RootView: View {
             }
         }
         .environment(\.api, api)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { auth.lock() }
+        }
+        .onChange(of: auth.isAuthenticated) { _, isAuth in
+            if isAuth && auth.canUseBiometrics && !auth.biometricEnabled {
+                showBiometricPrompt = true
+            }
+        }
+        .alert("Use Face ID?", isPresented: $showBiometricPrompt) {
+            Button("Enable Face ID") { auth.enableBiometrics() }
+            Button("Not Now", role: .cancel) {}
+        } message: {
+            Text("Unlock Budget Buddy instantly with Face ID next time.")
+        }
     }
 }
 

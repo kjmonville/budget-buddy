@@ -28,6 +28,7 @@
 		0A00000013 /* AddTransactionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000013 /* AddTransactionSheet.swift */; };
 		0A00000014 /* EditTransactionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000014 /* EditTransactionSheet.swift */; };
 		0A00000015 /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000015 /* ScheduleView.swift */; };
+		0A00000018 /* LockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000018 /* LockView.swift */; };
 		0A00000016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0A01000016 /* Assets.xcassets */; };
 		0A00000017 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0A01000017 /* Preview Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -54,6 +55,7 @@
 		0A01000013 /* AddTransactionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTransactionSheet.swift; sourceTree = "<group>"; };
 		0A01000014 /* EditTransactionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditTransactionSheet.swift; sourceTree = "<group>"; };
 		0A01000015 /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleView.swift; sourceTree = "<group>"; };
+		0A01000018 /* LockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockView.swift; sourceTree = "<group>"; };
 		0A01000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0A01000017 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		0A02000001 /* BudgetBuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BudgetBuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -143,6 +145,7 @@
 				0A01000013 /* AddTransactionSheet.swift */,
 				0A01000014 /* EditTransactionSheet.swift */,
 				0A01000015 /* ScheduleView.swift */,
+				0A01000018 /* LockView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -254,6 +257,7 @@
 				0A00000013 /* AddTransactionSheet.swift in Sources */,
 				0A00000014 /* EditTransactionSheet.swift in Sources */,
 				0A00000015 /* ScheduleView.swift in Sources */,
+				0A00000018 /* LockView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
