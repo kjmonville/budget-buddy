@@ -2,15 +2,13 @@ interface Env {
   DB: D1Database
   ASSETS: Fetcher
   JWT_SECRET: string
+  ALLOWED_ORIGIN: string
 }
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
+    headers: { 'Content-Type': 'application/json' },
   })
 
 const badRequest = (msg: string) => json({ error: msg }, 400)
@@ -33,6 +31,23 @@ function matchPath(
     }
   }
   return params
+}
+
+// ─── Validation helpers ───────────────────────────────────────────────────────
+
+const VALID_TYPES = new Set(['deposit', 'expense'])
+const VALID_RECURRENCE_TYPES = new Set(['monthly_fixed', 'weekly', 'biweekly', 'yearly', 'monthly_nth_weekday'])
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+function isValidDate(s: string): boolean {
+  return ISO_DATE_RE.test(s)
+}
+
+function validateLengths(fields: Record<string, { value: string | undefined | null; max: number }>): string | null {
+  for (const [field, { value, max }] of Object.entries(fields)) {
+    if (value && value.length > max) return `${field} must be ${max} characters or fewer`
+  }
+  return null
 }
 
 // ─── Auth utilities ───────────────────────────────────────────────────────────
@@ -80,7 +95,9 @@ async function verifyJWT(token: string, secret: string): Promise<{ sub: string; 
     const ok = await crypto.subtle.verify('HMAC', key, sigBytes, new TextEncoder().encode(`${h}.${p}`))
     if (!ok) return null
     const payload = JSON.parse(atob(p.replace(/-/g, '+').replace(/_/g, '/')))
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null
+    // Reject tokens that are missing exp or have expired (issue 2)
+    if (!payload.exp) return null
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null
     return payload
   } catch {
     return null
@@ -121,6 +138,11 @@ async function postRegister(env: Env, req: Request): Promise<Response> {
   const body = await req.json<{ email?: string; password?: string }>()
   if (!body.email || !body.password) return badRequest('email and password are required')
   if (body.password.length < 8) return badRequest('password must be at least 8 characters')
+  const lenErr = validateLengths({
+    email:    { value: body.email,    max: 254 },
+    password: { value: body.password, max: 128 },
+  })
+  if (lenErr) return badRequest(lenErr)
   const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?')
     .bind(body.email.toLowerCase()).first()
   if (existing) return json({ error: 'Email already registered' }, 409)
@@ -140,7 +162,6 @@ async function postRegister(env: Env, req: Request): Promise<Response> {
     status: 201,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
       'Set-Cookie': makeAuthCookie(token, secure),
     },
   })
@@ -149,6 +170,11 @@ async function postRegister(env: Env, req: Request): Promise<Response> {
 async function postLogin(env: Env, req: Request): Promise<Response> {
   const body = await req.json<{ email?: string; password?: string }>()
   if (!body.email || !body.password) return badRequest('email and password are required')
+  const lenErr = validateLengths({
+    email:    { value: body.email,    max: 254 },
+    password: { value: body.password, max: 128 },
+  })
+  if (lenErr) return badRequest(lenErr)
   const user = await env.DB.prepare(
     'SELECT id, email, password_hash, salt FROM users WHERE email = ?'
   ).bind(body.email.toLowerCase()).first<{ id: string; email: string; password_hash: string; salt: string }>()
@@ -164,7 +190,6 @@ async function postLogin(env: Env, req: Request): Promise<Response> {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
       'Set-Cookie': makeAuthCookie(token, secure),
     },
   })
@@ -176,7 +201,6 @@ async function postLogout(req: Request): Promise<Response> {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
       'Set-Cookie': clearAuthCookie(secure),
     },
   })
@@ -203,8 +227,10 @@ async function getBalance(env: Env, userId: string): Promise<Response> {
 
 async function putBalance(env: Env, req: Request, userId: string): Promise<Response> {
   const body = await req.json<{ amount: unknown; balance_date?: string }>()
-  if (typeof body.amount !== 'number') return badRequest('amount must be a number')
+  if (typeof body.amount !== 'number' || !isFinite(body.amount))
+    return badRequest('amount must be a finite number')
   const date = body.balance_date ?? new Date().toISOString().slice(0, 10)
+  if (!isValidDate(date)) return badRequest('balance_date must be YYYY-MM-DD')
   await env.DB.prepare(
     `INSERT INTO account_balance (user_id, amount, balance_date, updated_at)
      VALUES (?, ?, ?, datetime('now'))
@@ -242,6 +268,14 @@ async function postRecurring(env: Env, req: Request, userId: string): Promise<Re
   if (!body.type || !body.name || typeof body.amount !== 'number' || !body.recurrence_type) {
     return badRequest('type, name, amount, recurrence_type are required')
   }
+  if (!isFinite(body.amount)) return badRequest('amount must be a finite number')
+  if (!VALID_TYPES.has(body.type)) return badRequest('type must be "deposit" or "expense"')
+  if (!VALID_RECURRENCE_TYPES.has(body.recurrence_type)) return badRequest('invalid recurrence_type')
+  const lenErr = validateLengths({
+    name:  { value: body.name,  max: 100 },
+    notes: { value: body.notes, max: 500 },
+  })
+  if (lenErr) return badRequest(lenErr)
 
   const id = crypto.randomUUID()
   await env.DB.prepare(
@@ -259,8 +293,8 @@ async function postRecurring(env: Env, req: Request, userId: string): Promise<Re
     .run()
 
   const row = await env.DB.prepare(
-    'SELECT * FROM recurring_transactions WHERE id = ?'
-  ).bind(id).first()
+    'SELECT * FROM recurring_transactions WHERE id = ? AND user_id = ?'
+  ).bind(id, userId).first()
   return json(row, 201)
 }
 
@@ -282,6 +316,18 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
     biweekly_anchor?: string | null
     notes?: string | null
   }>()
+
+  if (body.amount !== undefined && body.amount !== null && !isFinite(body.amount))
+    return badRequest('amount must be a finite number')
+  if (body.type != null && !VALID_TYPES.has(body.type))
+    return badRequest('type must be "deposit" or "expense"')
+  if (body.recurrence_type != null && !VALID_RECURRENCE_TYPES.has(body.recurrence_type))
+    return badRequest('invalid recurrence_type')
+  const lenErr = validateLengths({
+    name:  { value: body.name,  max: 100 },
+    notes: { value: body.notes, max: 500 },
+  })
+  if (lenErr) return badRequest(lenErr)
 
   await env.DB.prepare(
     `UPDATE recurring_transactions
@@ -308,8 +354,8 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
     .run()
 
   const row = await env.DB.prepare(
-    'SELECT * FROM recurring_transactions WHERE id = ?'
-  ).bind(id).first()
+    'SELECT * FROM recurring_transactions WHERE id = ? AND user_id = ?'
+  ).bind(id, userId).first()
   return json(row)
 }
 
@@ -342,6 +388,14 @@ async function postAdhoc(env: Env, req: Request, userId: string): Promise<Respon
   if (!body.type || !body.name || typeof body.amount !== 'number' || !body.date) {
     return badRequest('type, name, amount, date are required')
   }
+  if (!isFinite(body.amount)) return badRequest('amount must be a finite number')
+  if (!VALID_TYPES.has(body.type)) return badRequest('type must be "deposit" or "expense"')
+  if (!isValidDate(body.date)) return badRequest('date must be YYYY-MM-DD')
+  const lenErr = validateLengths({
+    name:  { value: body.name,  max: 100 },
+    notes: { value: body.notes, max: 500 },
+  })
+  if (lenErr) return badRequest(lenErr)
 
   const id = crypto.randomUUID()
   await env.DB.prepare(
@@ -349,8 +403,8 @@ async function postAdhoc(env: Env, req: Request, userId: string): Promise<Respon
   ).bind(id, userId, body.type, body.name, body.amount, body.date, body.notes ?? null).run()
 
   const row = await env.DB.prepare(
-    'SELECT * FROM adhoc_transactions WHERE id = ?'
-  ).bind(id).first()
+    'SELECT * FROM adhoc_transactions WHERE id = ? AND user_id = ?'
+  ).bind(id, userId).first()
   return json(row, 201)
 }
 
@@ -360,6 +414,17 @@ async function putAdhoc(env: Env, req: Request, id: string, userId: string): Pro
   ).bind(id, userId).first()
   if (!existing) return notFound()
   const body = await req.json<{ type?: string; name?: string; amount?: number; date?: string; notes?: string | null }>()
+  if (body.amount !== undefined && body.amount !== null && !isFinite(body.amount))
+    return badRequest('amount must be a finite number')
+  if (body.type != null && !VALID_TYPES.has(body.type))
+    return badRequest('type must be "deposit" or "expense"')
+  if (body.date != null && !isValidDate(body.date))
+    return badRequest('date must be YYYY-MM-DD')
+  const lenErr = validateLengths({
+    name:  { value: body.name,  max: 100 },
+    notes: { value: body.notes, max: 500 },
+  })
+  if (lenErr) return badRequest(lenErr)
   await env.DB.prepare(
     `UPDATE adhoc_transactions
      SET type = COALESCE(?, type), name = COALESCE(?, name),
@@ -368,8 +433,8 @@ async function putAdhoc(env: Env, req: Request, id: string, userId: string): Pro
      WHERE id = ? AND user_id = ?`
   ).bind(body.type ?? null, body.name ?? null, body.amount ?? null, body.date ?? null, body.notes ?? null, id, userId).run()
   const row = await env.DB.prepare(
-    'SELECT * FROM adhoc_transactions WHERE id = ?'
-  ).bind(id).first()
+    'SELECT * FROM adhoc_transactions WHERE id = ? AND user_id = ?'
+  ).bind(id, userId).first()
   return json(row)
 }
 
@@ -394,6 +459,17 @@ async function postSkipped(env: Env, req: Request, userId: string): Promise<Resp
   const body = await req.json<{ transaction_id?: string; transaction_type?: string; date?: string }>()
   if (!body.transaction_id || !body.transaction_type || !body.date)
     return badRequest('transaction_id, transaction_type, date are required')
+  if (body.transaction_type !== 'recurring' && body.transaction_type !== 'adhoc')
+    return badRequest('transaction_type must be "recurring" or "adhoc"')
+  if (!isValidDate(body.date)) return badRequest('date must be YYYY-MM-DD')
+
+  // Verify the transaction belongs to the authenticated user (issue 3)
+  const table = body.transaction_type === 'recurring' ? 'recurring_transactions' : 'adhoc_transactions'
+  const owned = await env.DB.prepare(
+    `SELECT id FROM ${table} WHERE id = ? AND user_id = ?`
+  ).bind(body.transaction_id, userId).first()
+  if (!owned) return notFound()
+
   const id = crypto.randomUUID()
   await env.DB.prepare(
     'INSERT OR IGNORE INTO skipped_occurrences (id, user_id, transaction_id, transaction_type, date) VALUES (?, ?, ?, ?, ?)'
@@ -414,82 +490,95 @@ async function deleteSkipped(env: Env, id: string, userId: string): Promise<Resp
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
+async function handleRequest(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url)
+  const { method, pathname } = { method: request.method, pathname: url.pathname }
+
+  // CORS preflight — origin check handled by the outer fetch wrapper
+  if (method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    })
+  }
+
+  if (pathname.startsWith('/api/')) {
+    try {
+      // Auth routes (no JWT required)
+      if (pathname === '/api/auth/register' && method === 'POST') return postRegister(env, request)
+      if (pathname === '/api/auth/login'    && method === 'POST') return postLogin(env, request)
+      if (pathname === '/api/auth/logout'   && method === 'POST') return postLogout(request)
+      if (pathname === '/api/auth/me'       && method === 'GET')  return getMe(env, request)
+
+      // All other /api/* routes require a valid JWT
+      const authResult = await requireAuth(request, env)
+      if (authResult instanceof Response) return authResult
+      const userId = authResult.sub
+
+      // Balance
+      if (pathname === '/api/balance') {
+        if (method === 'GET') return getBalance(env, userId)
+        if (method === 'PUT') return putBalance(env, request, userId)
+      }
+
+      // Recurring
+      if (pathname === '/api/recurring') {
+        if (method === 'GET') return getRecurring(env, userId)
+        if (method === 'POST') return postRecurring(env, request, userId)
+      }
+      const recurringMatch = matchPath('/api/recurring/:id', pathname)
+      if (recurringMatch) {
+        if (method === 'PUT') return putRecurring(env, request, recurringMatch.id, userId)
+        if (method === 'DELETE') return deleteRecurring(env, recurringMatch.id, userId)
+      }
+
+      // Ad-hoc
+      if (pathname === '/api/adhoc') {
+        if (method === 'GET') return getAdhoc(env, userId)
+        if (method === 'POST') return postAdhoc(env, request, userId)
+      }
+      const adhocMatch = matchPath('/api/adhoc/:id', pathname)
+      if (adhocMatch) {
+        if (method === 'PUT') return putAdhoc(env, request, adhocMatch.id, userId)
+        if (method === 'DELETE') return deleteAdhoc(env, adhocMatch.id, userId)
+      }
+
+      // Skipped occurrences
+      if (pathname === '/api/skipped') {
+        if (method === 'GET') return getSkipped(env, userId)
+        if (method === 'POST') return postSkipped(env, request, userId)
+      }
+      const skippedMatch = matchPath('/api/skipped/:id', pathname)
+      if (skippedMatch) {
+        if (method === 'DELETE') return deleteSkipped(env, skippedMatch.id, userId)
+      }
+
+      return notFound()
+    } catch (err) {
+      console.error(err)
+      return json({ error: 'Internal server error' }, 500)
+    }
+  }
+
+  // Serve static assets (React SPA)
+  return env.ASSETS.fetch(request)
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url)
-    const { method, pathname } = { method: request.method, pathname: url.pathname }
+    const res = await handleRequest(request, env)
 
-    // CORS preflight
-    if (method === 'OPTIONS') {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-      })
+    // Restrict CORS to the configured allowed origin (issue 1)
+    const requestOrigin = request.headers.get('Origin') ?? ''
+    const allowedOrigin = env.ALLOWED_ORIGIN ?? ''
+    if (allowedOrigin && requestOrigin === allowedOrigin) {
+      const r = new Response(res.body, res)
+      r.headers.set('Access-Control-Allow-Origin', allowedOrigin)
+      return r
     }
-
-    if (pathname.startsWith('/api/')) {
-      try {
-        // Auth routes (no JWT required)
-        if (pathname === '/api/auth/register' && method === 'POST') return postRegister(env, request)
-        if (pathname === '/api/auth/login'    && method === 'POST') return postLogin(env, request)
-        if (pathname === '/api/auth/logout'   && method === 'POST') return postLogout(request)
-        if (pathname === '/api/auth/me'       && method === 'GET')  return getMe(env, request)
-
-        // All other /api/* routes require a valid JWT
-        const authResult = await requireAuth(request, env)
-        if (authResult instanceof Response) return authResult
-        const userId = authResult.sub
-
-        // Balance
-        if (pathname === '/api/balance') {
-          if (method === 'GET') return getBalance(env, userId)
-          if (method === 'PUT') return putBalance(env, request, userId)
-        }
-
-        // Recurring
-        if (pathname === '/api/recurring') {
-          if (method === 'GET') return getRecurring(env, userId)
-          if (method === 'POST') return postRecurring(env, request, userId)
-        }
-        const recurringMatch = matchPath('/api/recurring/:id', pathname)
-        if (recurringMatch) {
-          if (method === 'PUT') return putRecurring(env, request, recurringMatch.id, userId)
-          if (method === 'DELETE') return deleteRecurring(env, recurringMatch.id, userId)
-        }
-
-        // Ad-hoc
-        if (pathname === '/api/adhoc') {
-          if (method === 'GET') return getAdhoc(env, userId)
-          if (method === 'POST') return postAdhoc(env, request, userId)
-        }
-        const adhocMatch = matchPath('/api/adhoc/:id', pathname)
-        if (adhocMatch) {
-          if (method === 'PUT') return putAdhoc(env, request, adhocMatch.id, userId)
-          if (method === 'DELETE') return deleteAdhoc(env, adhocMatch.id, userId)
-        }
-
-        // Skipped occurrences
-        if (pathname === '/api/skipped') {
-          if (method === 'GET') return getSkipped(env, userId)
-          if (method === 'POST') return postSkipped(env, request, userId)
-        }
-        const skippedMatch = matchPath('/api/skipped/:id', pathname)
-        if (skippedMatch) {
-          if (method === 'DELETE') return deleteSkipped(env, skippedMatch.id, userId)
-        }
-
-        return notFound()
-      } catch (err) {
-        console.error(err)
-        return json({ error: 'Internal server error' }, 500)
-      }
-    }
-
-    // Serve static assets (React SPA)
-    return env.ASSETS.fetch(request)
+    return res
   },
 } satisfies ExportedHandler<Env>

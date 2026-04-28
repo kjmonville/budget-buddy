@@ -10,8 +10,8 @@ final class AuthStore {
     private static let service = "org.bandwidth.BudgetBuddy"
     private static let account = "jwt"
     private static let biometricAccount = "jwt-biometric"
+    private static let emailAccount = "userEmail"
     private static let udBiometricEnabled = "biometricEnabled"
-    private static let udUserEmail = "userEmail"
 
     private(set) var token: String?
     private(set) var email: String?
@@ -31,8 +31,13 @@ final class AuthStore {
 
     init() {
         if UserDefaults.standard.bool(forKey: Self.udBiometricEnabled) {
-            // Don't read the token yet — Face ID is required first
-            self.email = UserDefaults.standard.string(forKey: Self.udUserEmail)
+            // Don't read the token yet — Face ID is required first.
+            // Migrate email from UserDefaults to Keychain on first launch after upgrade.
+            if let legacyEmail = UserDefaults.standard.string(forKey: "userEmail") {
+                Self.writeEmail(legacyEmail)
+                UserDefaults.standard.removeObject(forKey: "userEmail")
+            }
+            self.email = Self.readEmail()
             self.isLocked = true
         } else {
             self.token = Self.read()
@@ -46,7 +51,7 @@ final class AuthStore {
         self.token = t
         self.email = email
         if let email {
-            UserDefaults.standard.set(email, forKey: Self.udUserEmail)
+            Self.writeEmail(email)
         }
     }
 
@@ -111,20 +116,21 @@ final class AuthStore {
     func clear() {
         Self.delete()
         Self.deleteBiometric()
+        Self.deleteEmail()
         token = nil
         email = nil
         isLocked = false
         biometricEnabled = false
-        UserDefaults.standard.removeObject(forKey: Self.udUserEmail)
     }
 
     // MARK: - Keychain (standard slot)
 
     private static func baseQuery() -> [String: Any] {
         [
-            kSecClass as String:       kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
+            kSecClass as String:            kSecClassGenericPassword,
+            kSecAttrService as String:      service,
+            kSecAttrAccount as String:      account,
+            kSecAttrAccessible as String:   kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
         ]
     }
 
@@ -187,5 +193,43 @@ final class AuthStore {
             kSecUseAuthenticationContext as String:    context,
         ]
         SecItemDelete(q as CFDictionary)
+    }
+
+    // MARK: - Keychain (email slot)
+
+    private static func emailQuery() -> [String: Any] {
+        [
+            kSecClass as String:            kSecClassGenericPassword,
+            kSecAttrService as String:      service,
+            kSecAttrAccount as String:      emailAccount,
+            kSecAttrAccessible as String:   kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+        ]
+    }
+
+    private static func readEmail() -> String? {
+        var q = emailQuery()
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data,
+              let s = String(data: data, encoding: .utf8) else { return nil }
+        return s
+    }
+
+    private static func writeEmail(_ email: String) {
+        let data = Data(email.utf8)
+        let q = emailQuery()
+        let attrs: [String: Any] = [kSecValueData as String: data]
+        let status = SecItemUpdate(q as CFDictionary, attrs as CFDictionary)
+        if status == errSecItemNotFound {
+            var add = q
+            add[kSecValueData as String] = data
+            SecItemAdd(add as CFDictionary, nil)
+        }
+    }
+
+    private static func deleteEmail() {
+        SecItemDelete(emailQuery() as CFDictionary)
     }
 }

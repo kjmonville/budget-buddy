@@ -16,6 +16,18 @@ struct RootView: View {
             } else if auth.isAuthenticated {
                 CalendarView()
                     .task { await store.load(api: api) }
+                    .overlay {
+                        // Cover sensitive content before iOS takes the app-switcher screenshot (issue 9)
+                        if scenePhase == .inactive || scenePhase == .background {
+                            Color(UIColor.systemBackground)
+                                .ignoresSafeArea()
+                                .overlay(
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 48))
+                                        .foregroundStyle(.secondary)
+                                )
+                        }
+                    }
             } else {
                 LoginView()
             }
