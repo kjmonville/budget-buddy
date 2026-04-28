@@ -198,6 +198,10 @@ struct CalendarView: View {
                         HStack {
                             Text(formatDate(group.date))
                                 .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(
+                                    store.dailyBalances[group.date]?.isPast == true
+                                        ? Color.bbWarning : Color.primary
+                                )
                             Spacer()
                             if let bal = store.dailyBalances[group.date]?.endBalance {
                                 Text(bal.asCurrency)
@@ -298,13 +302,24 @@ extension AppStore {
 
     func upcomingByDay() -> [(date: String, entries: [TxEntry])] {
         let today = Calendar.todayYMD()
-        let pairs = dailyBalances
+
+        // Past days: only surface un-skipped entries so the user can acknowledge them
+        let past = dailyBalances
+            .filter { $0.key < today }
+            .sorted { $0.key < $1.key }
+            .compactMap { (date, day) -> (String, [TxEntry])? in
+                let unskipped = (day.deposits + day.expenses).filter { !$0.skipped }
+                return unskipped.isEmpty ? nil : (date, unskipped)
+            }
+
+        let upcoming = dailyBalances
             .filter { $0.key >= today }
             .sorted { $0.key < $1.key }
             .compactMap { (date, day) -> (String, [TxEntry])? in
                 let entries = day.deposits + day.expenses
                 return entries.isEmpty ? nil : (date, entries)
             }
-        return Array(pairs.prefix(60))      // cap at ~2 months for performance
+
+        return past + Array(upcoming.prefix(60))
     }
 }
