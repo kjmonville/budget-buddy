@@ -33,10 +33,8 @@ struct CalendarView: View {
                     if !store.upcomingFlat.isEmpty {
                         ForecastChart(
                             dailyBalances: store.dailyBalances,
-                            lowDate: store.lowestBalance?.date,
-                            days: 30
+                            lowDate: store.lowestBalance?.date
                         )
-                        .padding(.horizontal)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
