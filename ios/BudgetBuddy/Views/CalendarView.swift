@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Home screen — Calendar V3 from the wireframes:
 /// header with Today's / Low Balance, forecast chart, then upcoming list.
@@ -9,6 +10,7 @@ struct CalendarView: View {
 
     @State private var balanceDraft: String = ""
     @State private var balanceEditing = false
+    @FocusState private var balanceFieldFocused: Bool
     @State private var addOpen = false
     @State private var editingRecurring: RecurringTransaction?
     @State private var editingAdhoc: AdhocTransaction?
@@ -128,11 +130,21 @@ struct CalendarView: View {
                             .keyboardType(.decimalPad)
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .submitLabel(.done)
+                            .focused($balanceFieldFocused)
                             .onSubmit { commitBalance() }
+                            .onAppear {
+                                DispatchQueue.main.async {
+                                    UIApplication.shared.sendAction(
+                                        #selector(UIResponder.selectAll(_:)),
+                                        to: nil, from: nil, for: nil
+                                    )
+                                }
+                            }
                     } else {
                         Button {
                             balanceDraft = String(format: "%.2f", store.balance.amount)
                             balanceEditing = true
+                            balanceFieldFocused = true
                         } label: {
                             Text(store.balance.amount.asCurrency)
                                 .font(.system(size: 32, weight: .bold, design: .rounded))
