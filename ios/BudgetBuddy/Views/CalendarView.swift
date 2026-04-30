@@ -21,25 +21,34 @@ struct CalendarView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    headerCard
-                    if let api = apiOpt {
-                        if !store.upcomingFlat.isEmpty {
-                            ForecastChart(
-                                dailyBalances: store.dailyBalances,
-                                lowDate: store.lowestBalance?.date,
-                                days: 30
-                            )
-                            .padding(.horizontal)
-                        }
-                        upcomingList(api: api)
-                    } else {
-                        ProgressView().padding(.top, 40)
+            List {
+                headerCard
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+
+                if let api = apiOpt {
+                    if !store.upcomingFlat.isEmpty {
+                        ForecastChart(
+                            dailyBalances: store.dailyBalances,
+                            lowDate: store.lowestBalance?.date,
+                            days: 30
+                        )
+                        .padding(.horizontal)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
+                    upcomingList(api: api)
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
-                .padding(.vertical)
             }
+            .listStyle(.plain)
             .navigationTitle("Budget Buddy")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -165,6 +174,7 @@ struct CalendarView: View {
         .padding(16)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
         .padding(.horizontal)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Upcoming list
@@ -178,41 +188,36 @@ struct CalendarView: View {
                 systemImage: "calendar",
                 description: Text("Tap the menu in the top-right to add one.")
             )
-            .padding(.top, 40)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         } else {
-            VStack(spacing: 0) {
-                ForEach(groups, id: \.date) { group in
-                    Section {
-                        ForEach(group.entries) { entry in
-                            TransactionRow(
-                                entry: entry,
-                                date: group.date,
-                                onToggleSkip: { Task { await toggleSkip(entry, date: group.date) } },
-                                onEdit: { startEdit(entry: entry) },
-                                onDelete: { deleteCandidate = DeleteCandidate(entry: entry, date: group.date) }
-                            )
-                            .padding(.horizontal)
-                            Divider().padding(.leading)
-                        }
-                    } header: {
-                        HStack {
-                            Text(formatDate(group.date))
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(
-                                    store.dailyBalances[group.date]?.isPast == true
-                                        ? Color.bbWarning : Color.primary
-                                )
-                            Spacer()
-                            if let bal = store.dailyBalances[group.date]?.endBalance {
-                                Text(bal.asCurrency)
-                                    .font(.caption.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .padding(.horizontal)
-                        .padding(.top, 12)
-                        .padding(.bottom, 4)
+            ForEach(groups, id: \.date) { group in
+                Section {
+                    ForEach(group.entries) { entry in
+                        TransactionRow(
+                            entry: entry,
+                            date: group.date,
+                            onToggleSkip: { Task { await toggleSkip(entry, date: group.date) } },
+                            onEdit: { startEdit(entry: entry) },
+                            onDelete: { deleteCandidate = DeleteCandidate(entry: entry, date: group.date) }
+                        )
                     }
+                } header: {
+                    HStack {
+                        Text(formatDate(group.date))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(
+                                store.dailyBalances[group.date]?.isPast == true
+                                    ? Color.bbWarning : Color.primary
+                            )
+                        Spacer()
+                        if let bal = store.dailyBalances[group.date]?.endBalance {
+                            Text(bal.asCurrency)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.top, 4)
                 }
             }
         }
