@@ -60,7 +60,7 @@ struct TransactionRow: View {
             Button {
                 onToggleSkip()
             } label: {
-                Label(entry.skipped ? "Unskip" : "Skip", systemImage: entry.skipped ? "arrow.uturn.backward" : "xmark.circle")
+                Label(entry.skipped ? "Uncleared" : "Cleared", systemImage: entry.skipped ? "arrow.uturn.backward" : "xmark.circle")
             }
             .tint(entry.skipped ? .gray : .orange)
         }

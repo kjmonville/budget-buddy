@@ -169,8 +169,8 @@ function TxBadge({
           : <span className="text-[9px] opacity-30">○</span>
         }
       </button>
-      <span className="truncate">{isDeposit ? '+' : '-'}{entry.name}</span>
-      <span className="font-mono shrink-0">{fmt(entry.amount)}</span>
+      <span className="truncate">{entry.name}</span>
+      <span className="font-mono shrink-0">{isDeposit ? '+' : '-'}{fmt(entry.amount)}</span>
     </div>
   )
 }
