@@ -2,6 +2,8 @@ import SwiftUI
 
 struct LockView: View {
     @Environment(AuthStore.self) private var auth
+    @Environment(\.api) private var api
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var errorMessage = ""
     @State private var isUnlocking = false
@@ -63,7 +65,9 @@ struct LockView: View {
 
             Spacer()
         }
-        .task { await tryUnlock() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await tryUnlock() } }
+        }
     }
 
     private func unlock() {
@@ -74,10 +78,34 @@ struct LockView: View {
         guard !isUnlocking else { return }
         isUnlocking = true
         errorMessage = ""
-        let success = await auth.unlockWithBiometrics()
-        isUnlocking = false
-        if !success {
+
+        // Step 1: Face ID → retrieve stored credentials from Keychain.
+        guard let (email, password) = await auth.getStoredCredentials() else {
+            isUnlocking = false
             errorMessage = "Face ID failed. Try again or sign in with password."
+            return
+        }
+
+        // Step 2: Exchange credentials for a fresh JWT — never stale.
+        guard let api else {
+            isUnlocking = false
+            errorMessage = "Unable to connect. Sign in with password."
+            return
+        }
+        do {
+            let resp = try await api.login(email: email, password: password)
+            auth.setToken(resp.token, email: resp.email)
+            auth.unlock()
+        } catch {
+            isUnlocking = false
+            let msg = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            // Credentials rejected by server (shouldn't happen unless password changed externally)
+            if msg.contains("401") || msg.lowercased().contains("unauthorized") || msg.lowercased().contains("invalid") {
+                auth.disableBiometrics()
+                auth.cancelLock()
+            } else {
+                errorMessage = "Sign in failed. Check your connection or sign in with password."
+            }
         }
     }
 }

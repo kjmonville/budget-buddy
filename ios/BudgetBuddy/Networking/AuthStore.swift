@@ -7,14 +7,20 @@ import Observation
 @Observable
 @MainActor
 final class AuthStore {
-    private static let service = "org.bandwidth.BudgetBuddy"
-    private static let account = "jwt"
-    private static let biometricAccount = "jwt-biometric"
-    private static let emailAccount = "userEmail"
+    private static let service           = "org.bandwidth.BudgetBuddy"
+    private static let account           = "jwt"
+    private static let credentialsAccount = "credentials"  // biometric-protected email+password
+    private static let emailAccount      = "userEmail"
     private static let udBiometricEnabled = "biometricEnabled"
 
     private(set) var token: String?
     private(set) var email: String?
+
+    // Pending biometric enrollment — set after a successful password login,
+    // cleared once the user responds to the "Use Face ID?" prompt.
+    private(set) var hasPendingBiometricEnrollment = false
+    private var pendingEnrollmentEmail = ""
+    private var pendingEnrollmentPassword = ""
 
     // Face ID state
     var biometricEnabled: Bool {
@@ -30,6 +36,9 @@ final class AuthStore {
     }
 
     init() {
+        // One-time migration: remove old jwt-biometric slot replaced by credentials slot.
+        Self.deleteLegacyBiometricSlot()
+
         if UserDefaults.standard.bool(forKey: Self.udBiometricEnabled) {
             // Don't read the token yet — Face ID is required first.
             // Migrate email from UserDefaults to Keychain on first launch after upgrade.
@@ -55,19 +64,51 @@ final class AuthStore {
         }
     }
 
-    func enableBiometrics() {
-        guard let t = token else { return }
-        Self.writeBiometric(t)
+    // MARK: - Biometric enrollment
+
+    /// Queue a biometric enrollment offer after a successful password login.
+    /// RootView observes hasPendingBiometricEnrollment and shows the "Use Face ID?" alert.
+    func offerBiometricEnrollment(email: String, password: String) {
+        pendingEnrollmentEmail = email
+        pendingEnrollmentPassword = password
+        hasPendingBiometricEnrollment = true
+    }
+
+    /// Called when user accepts the "Use Face ID?" prompt.
+    func acceptBiometricEnrollment() {
+        enableBiometrics(email: pendingEnrollmentEmail, password: pendingEnrollmentPassword)
+        clearPendingEnrollment()
+    }
+
+    /// Called when user declines the "Use Face ID?" prompt.
+    func declineBiometricEnrollment() {
+        clearPendingEnrollment()
+    }
+
+    private func clearPendingEnrollment() {
+        hasPendingBiometricEnrollment = false
+        pendingEnrollmentEmail = ""
+        pendingEnrollmentPassword = ""
+    }
+
+    /// Store email + password in the biometric-protected Keychain slot so Face ID can re-authenticate.
+    func enableBiometrics(email: String, password: String) {
+        Self.writeCredentials(email: email, password: password)
         biometricEnabled = true
     }
 
     func disableBiometrics() {
-        Self.deleteBiometric()
+        Self.deleteCredentials()
         biometricEnabled = false
         isLocked = false
     }
 
-    func unlockWithBiometrics() async -> Bool {
+    // MARK: - Biometric unlock
+
+    /// Prompt Face ID and return the stored credentials on success.
+    /// Returns nil if Face ID fails or no credentials are stored.
+    /// The caller is responsible for calling api.login() and then setToken() + unlock().
+    func getStoredCredentials() async -> (email: String, password: String)? {
         let context = LAContext()
         let granted = await withCheckedContinuation { cont in
             context.evaluatePolicy(
@@ -75,62 +116,57 @@ final class AuthStore {
                 localizedReason: "Unlock Budget Buddy"
             ) { ok, _ in cont.resume(returning: ok) }
         }
-        guard granted else { return false }
-        let query: [String: Any] = [
-            kSecClass as String:              kSecClassGenericPassword,
-            kSecAttrService as String:        Self.service,
-            kSecAttrAccount as String:        Self.biometricAccount,
-            kSecReturnData as String:         true,
-            kSecMatchLimit as String:         kSecMatchLimitOne,
-            kSecUseAuthenticationContext as String: context,
-        ]
-        var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-              let data = item as? Data,
-              let t = String(data: data, encoding: .utf8) else { return false }
-        token = t
-        isLocked = false
-        return true
+        guard granted else { return nil }
+        return Self.readCredentials(context: context)
     }
 
-    /// Lock the app — token cleared from memory, biometric slot intact. Face ID unlocks on next open.
+    /// Call after a successful Face ID → api.login() sequence to complete the unlock.
+    func unlock() {
+        isLocked = false
+    }
+
+    // MARK: - Lock / cancel
+
+    /// Lock the app on background — token cleared from memory, credentials slot intact.
     func lock() {
         guard biometricEnabled else { return }
         token = nil
         isLocked = true
     }
 
-    /// User chose to fall back to password from the lock screen — drop the lock without disabling biometrics.
+    /// User chose to fall back to password from the lock screen.
     func cancelLock() {
         isLocked = false
     }
 
-    /// Normal sign-out: clears the session but keeps the biometric slot so Face ID can sign back in.
+    // MARK: - Session management
+
+    /// Full sign-out: clears the session token AND all biometric state.
+    /// Next app launch requires a fresh password login.
     func logout() {
         Self.delete()
-        token = nil
-        isLocked = false
-    }
-
-    /// Full wipe: removes everything including the biometric slot (e.g. account deletion).
-    func clear() {
-        Self.delete()
-        Self.deleteBiometric()
+        Self.deleteCredentials()
         Self.deleteEmail()
+        biometricEnabled = false
         token = nil
         email = nil
         isLocked = false
-        biometricEnabled = false
+        clearPendingEnrollment()
     }
 
-    // MARK: - Keychain (standard slot)
+    /// Full wipe (account deletion): same as logout.
+    func clear() {
+        logout()
+    }
+
+    // MARK: - Keychain (standard JWT slot)
 
     private static func baseQuery() -> [String: Any] {
         [
-            kSecClass as String:            kSecClassGenericPassword,
-            kSecAttrService as String:      service,
-            kSecAttrAccount as String:      account,
-            kSecAttrAccessible as String:   kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecClass as String:          kSecClassGenericPassword,
+            kSecAttrService as String:    service,
+            kSecAttrAccount as String:    account,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
         ]
     }
 
@@ -161,36 +197,71 @@ final class AuthStore {
         SecItemDelete(baseQuery() as CFDictionary)
     }
 
-    // MARK: - Keychain (biometric-protected slot)
+    // MARK: - Keychain (biometric-protected credentials slot)
 
-    private static func writeBiometric(_ token: String) {
-        // Delete any existing item first to avoid errSecDuplicateItem
-        deleteBiometric()
+    private struct StoredCredentials: Codable {
+        let email: String
+        let password: String
+    }
+
+    private static func writeCredentials(email: String, password: String) {
+        deleteCredentials()
         guard let access = SecAccessControlCreateWithFlags(
             nil,
             kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
             .biometryCurrentSet,
             nil
         ) else { return }
+        let creds = StoredCredentials(email: email, password: password)
+        guard let data = try? JSONEncoder().encode(creds) else { return }
         let add: [String: Any] = [
-            kSecClass as String:               kSecClassGenericPassword,
-            kSecAttrService as String:         service,
-            kSecAttrAccount as String:         biometricAccount,
-            kSecValueData as String:           Data(token.utf8),
-            kSecAttrAccessControl as String:   access,
+            kSecClass as String:             kSecClassGenericPassword,
+            kSecAttrService as String:       service,
+            kSecAttrAccount as String:       credentialsAccount,
+            kSecValueData as String:         data,
+            kSecAttrAccessControl as String: access,
         ]
         SecItemAdd(add as CFDictionary, nil)
     }
 
-    private static func deleteBiometric() {
-        // Use an LAContext with interactionNotAllowed=true to suppress Face ID prompt on delete
+    private static func readCredentials(context: LAContext) -> (email: String, password: String)? {
+        let query: [String: Any] = [
+            kSecClass as String:                    kSecClassGenericPassword,
+            kSecAttrService as String:              service,
+            kSecAttrAccount as String:              credentialsAccount,
+            kSecReturnData as String:               true,
+            kSecMatchLimit as String:               kSecMatchLimitOne,
+            kSecUseAuthenticationContext as String: context,
+        ]
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data,
+              let creds = try? JSONDecoder().decode(StoredCredentials.self, from: data)
+        else { return nil }
+        return (creds.email, creds.password)
+    }
+
+    private static func deleteCredentials() {
         let context = LAContext()
         context.interactionNotAllowed = true
         let q: [String: Any] = [
-            kSecClass as String:                       kSecClassGenericPassword,
-            kSecAttrService as String:                 service,
-            kSecAttrAccount as String:                 biometricAccount,
-            kSecUseAuthenticationContext as String:    context,
+            kSecClass as String:                    kSecClassGenericPassword,
+            kSecAttrService as String:              service,
+            kSecAttrAccount as String:              credentialsAccount,
+            kSecUseAuthenticationContext as String: context,
+        ]
+        SecItemDelete(q as CFDictionary)
+    }
+
+    /// One-time migration: silently remove the old jwt-biometric Keychain slot.
+    private static func deleteLegacyBiometricSlot() {
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        let q: [String: Any] = [
+            kSecClass as String:                    kSecClassGenericPassword,
+            kSecAttrService as String:              service,
+            kSecAttrAccount as String:              "jwt-biometric",
+            kSecUseAuthenticationContext as String: context,
         ]
         SecItemDelete(q as CFDictionary)
     }
@@ -199,10 +270,10 @@ final class AuthStore {
 
     private static func emailQuery() -> [String: Any] {
         [
-            kSecClass as String:            kSecClassGenericPassword,
-            kSecAttrService as String:      service,
-            kSecAttrAccount as String:      emailAccount,
-            kSecAttrAccessible as String:   kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecClass as String:          kSecClassGenericPassword,
+            kSecAttrService as String:    service,
+            kSecAttrAccount as String:    emailAccount,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
         ]
     }
 

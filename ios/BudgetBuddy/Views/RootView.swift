@@ -5,8 +5,6 @@ struct RootView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var showBiometricPrompt = false
-
     private var api: APIClient { APIClient(baseURL: Config.apiBase, auth: auth) }
 
     var body: some View {
@@ -36,14 +34,12 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { auth.lock() }
         }
-        .onChange(of: auth.isAuthenticated) { _, isAuth in
-            if isAuth && auth.canUseBiometrics && !auth.biometricEnabled {
-                showBiometricPrompt = true
-            }
-        }
-        .alert("Use Face ID?", isPresented: $showBiometricPrompt) {
-            Button("Enable Face ID") { auth.enableBiometrics() }
-            Button("Not Now", role: .cancel) {}
+        .alert("Use Face ID?", isPresented: Binding(
+            get: { auth.hasPendingBiometricEnrollment },
+            set: { if !$0 { auth.declineBiometricEnrollment() } }
+        )) {
+            Button("Enable Face ID") { auth.acceptBiometricEnrollment() }
+            Button("Not Now", role: .cancel) { auth.declineBiometricEnrollment() }
         } message: {
             Text("Unlock Budget Buddy instantly with Face ID next time.")
         }

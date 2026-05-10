@@ -9,7 +9,6 @@ struct LoginView: View {
     @State private var error = ""
     @State private var working = false
     @State private var biometricError = ""
-
     enum Mode { case login, register }
 
     private var api: APIClient { APIClient(baseURL: Config.apiBase, auth: auth) }
@@ -102,9 +101,16 @@ struct LoginView: View {
     private func signInWithBiometrics() {
         biometricError = ""
         Task {
-            let success = await auth.unlockWithBiometrics()
-            if !success {
+            guard let (storedEmail, storedPassword) = await auth.getStoredCredentials() else {
                 biometricError = "Face ID failed. Enter your password to sign in."
+                return
+            }
+            do {
+                let resp = try await api.login(email: storedEmail, password: storedPassword)
+                auth.setToken(resp.token, email: resp.email)
+                auth.unlock()
+            } catch {
+                biometricError = "Sign in failed. Enter your password."
             }
         }
     }
@@ -120,6 +126,10 @@ struct LoginView: View {
                     ? try await api.login(email: e, password: p)
                     : try await api.register(email: e, password: p)
                 auth.setToken(resp.token, email: resp.email)
+                // Queue Face ID enrollment — shown by RootView after transition to CalendarView.
+                if auth.canUseBiometrics && !auth.biometricEnabled {
+                    auth.offerBiometricEnrollment(email: e, password: p)
+                }
             } catch {
                 self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
