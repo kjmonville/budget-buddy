@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AdhocTransaction, AccountBalance, RecurringTransaction, SkippedOccurrence, TxEntry, User } from './types'
+import type { AdhocTransaction, AccountBalance, PaidOccurrence, RecurringTransaction, SkippedOccurrence, TxEntry, User } from './types'
 import * as api from './lib/api'
 import { computeAllDailyBalances, localDateStr } from './lib/balance'
 import { applyTheme, getStoredTheme, type Theme } from './lib/theme'
@@ -32,6 +32,7 @@ export default function App() {
   const [recurring, setRecurring] = useState<RecurringTransaction[]>([])
   const [adhoc, setAdhoc] = useState<AdhocTransaction[]>([])
   const [skipped, setSkipped] = useState<SkippedOccurrence[]>([])
+  const [paid, setPaid] = useState<PaidOccurrence[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -68,12 +69,13 @@ export default function App() {
     if (!user) return
     setLoading(true)
     setError('')
-    Promise.all([api.getBalance(), api.getRecurring(), api.getAdhoc(), api.getSkipped()])
-      .then(([bal, rec, adh, skp]) => {
+    Promise.all([api.getBalance(), api.getRecurring(), api.getAdhoc(), api.getSkipped(), api.getPaid()])
+      .then(([bal, rec, adh, skp, pd]) => {
         setBalance(bal)
         setRecurring(rec)
         setAdhoc(adh)
         setSkipped(skp)
+        setPaid(pd)
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false))
@@ -90,11 +92,12 @@ export default function App() {
       recurring,
       adhoc,
       skipped,
+      paid,
       cutoffDate,
       fromDate,
       toDate
     )
-  }, [balance, recurring, adhoc, skipped, fromDate, toDate])
+  }, [balance, recurring, adhoc, skipped, paid, fromDate, toDate])
 
   const lowestBalance = useMemo(() => {
     let min: number | null = null
@@ -156,6 +159,7 @@ export default function App() {
     setRecurring([])
     setAdhoc([])
     setSkipped([])
+    setPaid([])
   }, [])
 
   // Balance save
@@ -196,6 +200,17 @@ export default function App() {
     } else {
       const created = await api.skipOccurrence(entry.id, entry.source, date)
       setSkipped((prev) => [...prev, created])
+    }
+  }, [])
+
+  // Toggle paid on a transaction occurrence
+  const handleTogglePaid = useCallback(async (entry: TxEntry, date: string) => {
+    if (entry.paid) {
+      await api.unmarkPaid(entry.paidId!)
+      setPaid((prev) => prev.filter((p) => p.id !== entry.paidId))
+    } else {
+      const created = await api.markPaid(entry.id, entry.source, date)
+      setPaid((prev) => [...prev, created])
     }
   }, [])
 
@@ -419,6 +434,7 @@ export default function App() {
           balances={dailyBalances}
           onDayClick={handleDayClick}
           onToggleSkip={handleToggleSkip}
+          onTogglePaid={handleTogglePaid}
           onEdit={handleCalendarEdit}
           onDelete={handleCalendarDelete}
           onPrev={prevMonth}

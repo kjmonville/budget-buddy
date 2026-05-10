@@ -89,6 +89,19 @@ struct APIClient: @unchecked Sendable {
         let _: EmptyOK = try await delete("/skipped/\(id)")
     }
 
+    // Paid
+    func getPaid() async throws -> [PaidOccurrence] {
+        try await get("/paid")
+    }
+    func markPaid(transactionId: String, kind: String, date: String) async throws -> PaidOccurrence {
+        try await post("/paid", body: ["transaction_id": transactionId,
+                                       "transaction_type": kind,
+                                       "date": date])
+    }
+    func unmarkPaid(id: String) async throws {
+        let _: EmptyOK = try await delete("/paid/\(id)")
+    }
+
     // MARK: - Verbs
 
     private func get<R: Decodable>(_ path: String) async throws -> R {

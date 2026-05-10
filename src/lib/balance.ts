@@ -1,4 +1,4 @@
-import type { AdhocTransaction, DayBalance, RecurringTransaction, SkippedOccurrence, TxEntry } from '../types'
+import type { AdhocTransaction, DayBalance, PaidOccurrence, RecurringTransaction, SkippedOccurrence, TxEntry } from '../types'
 import { expandRecurring } from './recurrence'
 
 export function localDateStr(d = new Date()): string {
@@ -9,6 +9,7 @@ function buildTxMap(
   recurring: RecurringTransaction[],
   adhoc: AdhocTransaction[],
   skipped: SkippedOccurrence[],
+  paid: PaidOccurrence[],
   fromDate: string,
   toDate: string
 ): Map<string, { deposits: TxEntry[]; expenses: TxEntry[] }> {
@@ -24,6 +25,11 @@ function buildTxMap(
     skipMap.set(`${s.transaction_id}|${s.date}`, s.id)
   }
 
+  const paidMap = new Map<string, string>()
+  for (const p of paid) {
+    paidMap.set(`${p.transaction_id}|${p.date}`, p.id)
+  }
+
   const [fromY, fromM] = fromDate.split('-').map(Number)
   const [toY, toM] = toDate.split('-').map(Number)
 
@@ -34,8 +40,9 @@ function buildTxMap(
       for (const date of expandRecurring(rule, y, m)) {
         if (date < fromDate || date > toDate) continue
         const skippedId = skipMap.get(`${rule.id}|${date}`) ?? null
+        const paidId = paidMap.get(`${rule.id}|${date}`) ?? null
         const day = ensure(date)
-        const entry: TxEntry = { id: rule.id, name: rule.name, amount: rule.amount, source: 'recurring', skipped: skippedId !== null, skippedId }
+        const entry: TxEntry = { id: rule.id, name: rule.name, amount: rule.amount, source: 'recurring', skipped: skippedId !== null, skippedId, paid: paidId !== null, paidId }
         if (rule.type === 'deposit') day.deposits.push(entry)
         else day.expenses.push(entry)
       }
@@ -47,8 +54,9 @@ function buildTxMap(
   for (const tx of adhoc) {
     if (tx.date < fromDate || tx.date > toDate) continue
     const skippedId = skipMap.get(`${tx.id}|${tx.date}`) ?? null
+    const paidId = paidMap.get(`${tx.id}|${tx.date}`) ?? null
     const day = ensure(tx.date)
-    const entry: TxEntry = { id: tx.id, name: tx.name, amount: tx.amount, source: 'adhoc', skipped: skippedId !== null, skippedId }
+    const entry: TxEntry = { id: tx.id, name: tx.name, amount: tx.amount, source: 'adhoc', skipped: skippedId !== null, skippedId, paid: paidId !== null, paidId }
     if (tx.type === 'deposit') day.deposits.push(entry)
     else day.expenses.push(entry)
   }
@@ -71,6 +79,7 @@ export function computeAllDailyBalances(
   recurring: RecurringTransaction[],
   adhoc: AdhocTransaction[],
   skipped: SkippedOccurrence[],
+  paid: PaidOccurrence[],
   cutoffDate: string,
   fromDate: string,
   toDate: string
@@ -78,7 +87,7 @@ export function computeAllDailyBalances(
   const todayStr = localDateStr()
 
   // Build tx map only from cutoffDate onwards — pre-cutoff transactions are ignored
-  const txMap = buildTxMap(recurring, adhoc, skipped, cutoffDate, toDate)
+  const txMap = buildTxMap(recurring, adhoc, skipped, paid, cutoffDate, toDate)
 
   const allDates: string[] = []
   const cur = new Date(fromDate + 'T00:00:00')

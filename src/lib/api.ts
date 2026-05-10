@@ -1,6 +1,7 @@
 import type {
   AccountBalance,
   AdhocTransaction,
+  PaidOccurrence,
   RecurringTransaction,
   SkippedOccurrence,
   User,
@@ -105,3 +106,16 @@ export const skipOccurrence = (transaction_id: string, transaction_type: 'recurr
 
 export const unskipOccurrence = (id: string) =>
   request<{ ok: boolean }>(`/skipped/${id}`, { method: 'DELETE' })
+
+// Paid occurrences
+export const getPaid = () =>
+  request<PaidOccurrence[]>('/paid')
+
+export const markPaid = (transaction_id: string, transaction_type: 'recurring' | 'adhoc', date: string) =>
+  request<PaidOccurrence>('/paid', {
+    method: 'POST',
+    body: JSON.stringify({ transaction_id, transaction_type, date }),
+  })
+
+export const unmarkPaid = (id: string) =>
+  request<{ ok: boolean }>(`/paid/${id}`, { method: 'DELETE' })

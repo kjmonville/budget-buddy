@@ -13,6 +13,7 @@ interface Props {
   balances: Record<string, DayBalance>
   onDayClick: (date: string) => void
   onToggleSkip: (entry: TxEntry, date: string) => void
+  onTogglePaid: (entry: TxEntry, date: string) => void
   onEdit: (entry: TxEntry) => void
   onDelete: (entry: TxEntry) => void
   onPrev: () => void
@@ -25,6 +26,7 @@ export default function CalendarView({
   balances,
   onDayClick,
   onToggleSkip,
+  onTogglePaid,
   onEdit,
   onDelete,
   onPrev,
@@ -96,6 +98,7 @@ export default function CalendarView({
             isCurrentMonth={inMonth}
             onClick={onDayClick}
             onToggleSkip={onToggleSkip}
+            onTogglePaid={onTogglePaid}
             onEdit={onEdit}
             onDelete={onDelete}
           />

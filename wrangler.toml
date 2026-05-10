@@ -11,7 +11,7 @@ not_found_handling = "single-page-application"
 # Set ALLOWED_ORIGIN to your production Worker URL or custom domain after first deploy.
 # Example: ALLOWED_ORIGIN = "https://budget-buddy.your-subdomain.workers.dev"
 # Override per-environment below if needed.
-ALLOWED_ORIGIN = ""
+ALLOWED_ORIGIN = "https://budget.bandwidth.org"
 
 [[d1_databases]]
 binding = "DB"

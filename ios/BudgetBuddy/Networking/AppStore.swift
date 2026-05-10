@@ -8,6 +8,7 @@ final class AppStore {
     var recurring: [RecurringTransaction] = [] { didSet { recomputeDailyBalances() } }
     var adhoc: [AdhocTransaction] = [] { didSet { recomputeDailyBalances() } }
     var skipped: [SkippedOccurrence] = [] { didSet { recomputeDailyBalances() } }
+    var paid: [PaidOccurrence] = [] { didSet { recomputeDailyBalances() } }
 
     var loading = false
     var lastError: String?
@@ -38,11 +39,13 @@ final class AppStore {
             async let r = api.getRecurring()
             async let a = api.getAdhoc()
             async let s = api.getSkipped()
-            let (bal, rec, adh, skp) = try await (b, r, a, s)
+            async let p = api.getPaid()
+            let (bal, rec, adh, skp, pd) = try await (b, r, a, s, p)
             self.balance = bal
             self.recurring = rec
             self.adhoc = adh
             self.skipped = skp
+            self.paid = pd
         } catch {
             self.lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -54,6 +57,7 @@ final class AppStore {
         recurring = []
         adhoc = []
         skipped = []
+        paid = []
         lastError = nil
     }
 
@@ -67,6 +71,7 @@ final class AppStore {
             recurring: recurring,
             adhoc: adhoc,
             skipped: skipped,
+            paid: paid,
             cutoffDate: cutoff,
             fromDate: fromDate,
             toDate: toDate

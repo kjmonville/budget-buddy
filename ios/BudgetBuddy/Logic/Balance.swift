@@ -10,6 +10,8 @@ struct TxEntry: Identifiable, Hashable {
     let source: Source
     var skipped: Bool
     var skippedId: String?
+    var paid: Bool
+    var paidId: String?
 
     /// Negative for expenses, positive for deposits.
     var signedAmount: Double { type == .expense ? -amount : amount }
@@ -31,12 +33,13 @@ enum Balance {
         recurring: [RecurringTransaction],
         adhoc: [AdhocTransaction],
         skipped: [SkippedOccurrence],
+        paid: [PaidOccurrence],
         cutoffDate: String,
         fromDate: String,
         toDate: String,
         today: String = Calendar.todayYMD()
     ) -> [String: DayBalance] {
-        let txMap = buildTxMap(recurring: recurring, adhoc: adhoc, skipped: skipped,
+        let txMap = buildTxMap(recurring: recurring, adhoc: adhoc, skipped: skipped, paid: paid,
                                fromDate: cutoffDate, toDate: toDate)
         let allDates = Self.dateRange(from: fromDate, to: toDate)
         var result: [String: DayBalance] = [:]
@@ -77,12 +80,15 @@ enum Balance {
         recurring: [RecurringTransaction],
         adhoc: [AdhocTransaction],
         skipped: [SkippedOccurrence],
+        paid: [PaidOccurrence],
         fromDate: String,
         toDate: String
     ) -> [String: DayBalance] {
         var map: [String: DayBalance] = [:]
         var skipMap: [String: String] = [:]   // "<txId>|<date>" → skippedId
         for s in skipped { skipMap["\(s.transaction_id)|\(s.date)"] = s.id }
+        var paidMap: [String: String] = [:]   // "<txId>|<date>" → paidId
+        for p in paid { paidMap["\(p.transaction_id)|\(p.date)"] = p.id }
 
         let fromParts = fromDate.split(separator: "-").compactMap { Int($0) }
         let toParts = toDate.split(separator: "-").compactMap { Int($0) }
@@ -95,11 +101,13 @@ enum Balance {
                 for date in Recurrence.expand(rule, year: y, month: m) {
                     if date < fromDate || date > toDate { continue }
                     let skippedId = skipMap["\(rule.id)|\(date)"]
+                    let paidId = paidMap["\(rule.id)|\(date)"]
                     let entry = TxEntry(
                         id: "\(rule.id)|\(date)",
                         txId: rule.id, name: rule.name, amount: rule.amount,
                         type: rule.type, source: .recurring,
-                        skipped: skippedId != nil, skippedId: skippedId
+                        skipped: skippedId != nil, skippedId: skippedId,
+                        paid: paidId != nil, paidId: paidId
                     )
                     var day = map[date] ?? DayBalance()
                     if rule.type == .deposit { day.deposits.append(entry) } else { day.expenses.append(entry) }
@@ -113,11 +121,13 @@ enum Balance {
         for tx in adhoc {
             if tx.date < fromDate || tx.date > toDate { continue }
             let skippedId = skipMap["\(tx.id)|\(tx.date)"]
+            let paidId = paidMap["\(tx.id)|\(tx.date)"]
             let entry = TxEntry(
                 id: "\(tx.id)|\(tx.date)",
                 txId: tx.id, name: tx.name, amount: tx.amount,
                 type: tx.type, source: .adhoc,
-                skipped: skippedId != nil, skippedId: skippedId
+                skipped: skippedId != nil, skippedId: skippedId,
+                paid: paidId != nil, paidId: paidId
             )
             var day = map[tx.date] ?? DayBalance()
             if tx.type == .deposit { day.deposits.append(entry) } else { day.expenses.append(entry) }

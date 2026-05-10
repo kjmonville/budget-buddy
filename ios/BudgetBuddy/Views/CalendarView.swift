@@ -208,6 +208,7 @@ struct CalendarView: View {
                             entry: entry,
                             date: group.date,
                             onToggleSkip: { Task { await toggleSkip(entry, date: group.date) } },
+                            onTogglePaid: { Task { await togglePaid(entry, date: group.date) } },
                             onEdit: { startEdit(entry: entry) },
                             onDelete: { deleteCandidate = DeleteCandidate(entry: entry, date: group.date) }
                         )
@@ -260,6 +261,20 @@ struct CalendarView: View {
             } else {
                 let created = try await api.skip(transactionId: entry.txId, kind: entry.source.rawValue, date: date)
                 store.skipped.append(created)
+            }
+        } catch {
+            store.lastError = (error as? LocalizedError)?.errorDescription
+        }
+    }
+
+    private func togglePaid(_ entry: TxEntry, date: String) async {
+        do {
+            if entry.paid, let pid = entry.paidId {
+                try await api.unmarkPaid(id: pid)
+                store.paid.removeAll { $0.id == pid }
+            } else {
+                let created = try await api.markPaid(transactionId: entry.txId, kind: entry.source.rawValue, date: date)
+                store.paid.append(created)
             }
         } catch {
             store.lastError = (error as? LocalizedError)?.errorDescription

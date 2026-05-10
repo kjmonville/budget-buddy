@@ -488,6 +488,47 @@ async function deleteSkipped(env: Env, id: string, userId: string): Promise<Resp
   return json({ ok: true })
 }
 
+// ─── Paid occurrence handlers ─────────────────────────────────────────────────
+
+async function getPaid(env: Env, userId: string): Promise<Response> {
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM paid_occurrences WHERE user_id = ? ORDER BY date ASC'
+  ).bind(userId).all()
+  return json(results)
+}
+
+async function postPaid(env: Env, req: Request, userId: string): Promise<Response> {
+  const body = await req.json<{ transaction_id?: string; transaction_type?: string; date?: string }>()
+  if (!body.transaction_id || !body.transaction_type || !body.date)
+    return badRequest('transaction_id, transaction_type, date are required')
+  if (body.transaction_type !== 'recurring' && body.transaction_type !== 'adhoc')
+    return badRequest('transaction_type must be "recurring" or "adhoc"')
+  if (!isValidDate(body.date)) return badRequest('date must be YYYY-MM-DD')
+
+  const table = body.transaction_type === 'recurring' ? 'recurring_transactions' : 'adhoc_transactions'
+  const owned = await env.DB.prepare(
+    `SELECT id FROM ${table} WHERE id = ? AND user_id = ?`
+  ).bind(body.transaction_id, userId).first()
+  if (!owned) return notFound()
+
+  const id = crypto.randomUUID()
+  await env.DB.prepare(
+    'INSERT OR IGNORE INTO paid_occurrences (id, user_id, transaction_id, transaction_type, date) VALUES (?, ?, ?, ?, ?)'
+  ).bind(id, userId, body.transaction_id, body.transaction_type, body.date).run()
+  const row = await env.DB.prepare(
+    'SELECT * FROM paid_occurrences WHERE transaction_id = ? AND date = ? AND user_id = ?'
+  ).bind(body.transaction_id, body.date, userId).first()
+  return json(row, 201)
+}
+
+async function deletePaid(env: Env, id: string, userId: string): Promise<Response> {
+  const result = await env.DB.prepare(
+    'DELETE FROM paid_occurrences WHERE id = ? AND user_id = ?'
+  ).bind(id, userId).run()
+  if (!result.meta.changes) return notFound()
+  return json({ ok: true })
+}
+
 // ─── Router ──────────────────────────────────────────────────────────────────
 
 async function handleRequest(request: Request, env: Env): Promise<Response> {
@@ -554,6 +595,16 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       const skippedMatch = matchPath('/api/skipped/:id', pathname)
       if (skippedMatch) {
         if (method === 'DELETE') return deleteSkipped(env, skippedMatch.id, userId)
+      }
+
+      // Paid occurrences
+      if (pathname === '/api/paid') {
+        if (method === 'GET') return getPaid(env, userId)
+        if (method === 'POST') return postPaid(env, request, userId)
+      }
+      const paidMatch = matchPath('/api/paid/:id', pathname)
+      if (paidMatch) {
+        if (method === 'DELETE') return deletePaid(env, paidMatch.id, userId)
       }
 
       return notFound()

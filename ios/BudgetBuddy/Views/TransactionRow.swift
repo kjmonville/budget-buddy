@@ -6,6 +6,7 @@ struct TransactionRow: View {
     let entry: TxEntry
     let date: String                            // YYYY-MM-DD this occurrence falls on
     let onToggleSkip: () -> Void
+    let onTogglePaid: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
     var showDate: Bool = false
@@ -16,6 +17,7 @@ struct TransactionRow: View {
         HStack(spacing: 12) {
             Capsule()
                 .fill(entry.skipped ? Color.gray.opacity(0.4) : (isDeposit ? Color.bbDeposit : Color.bbExpense))
+                .opacity(entry.paid && !entry.skipped ? 0.5 : 1)
                 .frame(width: 3)
                 .frame(maxHeight: .infinity)
 
@@ -24,10 +26,13 @@ struct TransactionRow: View {
                     .font(.body.weight(.medium))
                     .strikethrough(entry.skipped)
                     .foregroundStyle(entry.skipped ? Color.secondary : Color.primary)
+                    .opacity(entry.paid && !entry.skipped ? 0.7 : 1)
                 HStack(spacing: 6) {
                     Text(entry.source == .recurring ? "↻ Recurring" : "One-time")
                     if entry.skipped {
                         Text("· Skipped")
+                    } else if entry.paid {
+                        Text("· Paid ✓")
                     } else if showDate {
                         Text("· \(formattedDate)")
                     }
@@ -42,9 +47,16 @@ struct TransactionRow: View {
                 .font(.body.weight(.semibold).monospacedDigit())
                 .foregroundStyle(entry.skipped ? .secondary : (isDeposit ? Color.bbDeposit : Color.bbExpense))
                 .strikethrough(entry.skipped)
+                .opacity(entry.paid && !entry.skipped ? 0.7 : 1)
         }
         .padding(.vertical, 4)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button {
+                onTogglePaid()
+            } label: {
+                Label(entry.paid ? "Unpaid" : "Paid", systemImage: entry.paid ? "arrow.uturn.backward" : "checkmark.circle")
+            }
+            .tint(entry.paid ? .gray : .green)
             Button {
                 onToggleSkip()
             } label: {

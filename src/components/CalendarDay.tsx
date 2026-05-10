@@ -11,11 +11,12 @@ interface Props {
   isCurrentMonth: boolean
   onClick: (date: string) => void
   onToggleSkip: (entry: TxEntry, date: string) => void
+  onTogglePaid: (entry: TxEntry, date: string) => void
   onEdit: (entry: TxEntry) => void
   onDelete: (entry: TxEntry) => void
 }
 
-export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, onToggleSkip, onEdit, onDelete }: Props) {
+export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, onToggleSkip, onTogglePaid, onEdit, onDelete }: Props) {
   const isToday = data?.isToday ?? false
   const isPast = data?.isPast ?? (!data && !isCurrentMonth)
   const balance = data?.endBalance ?? null
@@ -69,6 +70,7 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
               date={date}
               isDeposit
               onToggleSkip={onToggleSkip}
+              onTogglePaid={onTogglePaid}
               onContextMenu={(entry, x, y) => setContextMenu({ x, y, entry })}
             />
           ))}
@@ -79,6 +81,7 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
               date={date}
               isDeposit={false}
               onToggleSkip={onToggleSkip}
+              onTogglePaid={onTogglePaid}
               onContextMenu={(entry, x, y) => setContextMenu({ x, y, entry })}
             />
           ))}
@@ -128,28 +131,44 @@ function TxBadge({
   date,
   isDeposit,
   onToggleSkip,
+  onTogglePaid,
   onContextMenu,
 }: {
   entry: TxEntry
   date: string
   isDeposit: boolean
   onToggleSkip: (entry: TxEntry, date: string) => void
+  onTogglePaid: (entry: TxEntry, date: string) => void
   onContextMenu: (entry: TxEntry, x: number, y: number) => void
 }) {
   return (
     <div
       onClick={(e) => { e.stopPropagation(); onToggleSkip(entry, date) }}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(entry, e.clientX, e.clientY) }}
-      title={entry.skipped ? 'Click to re-enable' : 'Click to mark complete'}
+      title={entry.skipped ? 'Click to re-enable' : 'Click to skip'}
       className={[
-        'text-[10px] leading-tight rounded px-1 flex justify-between gap-1 cursor-pointer select-none',
+        'text-[10px] leading-tight rounded px-1 flex items-center gap-0.5 cursor-pointer select-none',
         entry.skipped
           ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 line-through'
-          : isDeposit
-            ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60'
-            : 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60',
+          : entry.paid
+            ? isDeposit
+              ? 'bg-emerald-100/60 dark:bg-emerald-900/25 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200/60 dark:hover:bg-emerald-900/40'
+              : 'bg-red-100/60 dark:bg-red-900/25 text-red-700 dark:text-red-400 hover:bg-red-200/60 dark:hover:bg-red-900/40'
+            : isDeposit
+              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60'
+              : 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60',
       ].join(' ')}
     >
+      <button
+        onClick={(e) => { e.stopPropagation(); onTogglePaid(entry, date) }}
+        title={entry.paid ? 'Mark unpaid' : 'Mark paid'}
+        className="shrink-0 leading-none"
+      >
+        {entry.paid
+          ? <span className="text-[9px]">✓</span>
+          : <span className="text-[9px] opacity-30">○</span>
+        }
+      </button>
       <span className="truncate">{isDeposit ? '+' : '-'}{entry.name}</span>
       <span className="font-mono shrink-0">{fmt(entry.amount)}</span>
     </div>

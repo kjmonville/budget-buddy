@@ -52,9 +52,19 @@ export interface TxEntry {
   source: 'recurring' | 'adhoc'
   skipped: boolean
   skippedId: string | null
+  paid: boolean
+  paidId: string | null
 }
 
 export interface SkippedOccurrence {
+  id: string
+  transaction_id: string
+  transaction_type: 'recurring' | 'adhoc'
+  date: string
+  created_at: string
+}
+
+export interface PaidOccurrence {
   id: string
   transaction_id: string
   transaction_type: 'recurring' | 'adhoc'
