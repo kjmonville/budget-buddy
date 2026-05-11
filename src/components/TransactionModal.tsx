@@ -32,6 +32,7 @@ const DEFAULT_RECURRING: Omit<RecurringTransaction, 'id' | 'active' | 'created_a
   day_of_week: null,
   nth_week: null,
   biweekly_anchor: null,
+  start_date: null,
   notes: null,
 }
 
@@ -59,6 +60,7 @@ export default function TransactionModal({
   const [rDayOfWeek, setRDayOfWeek] = useState(editRecurring?.day_of_week ?? 5)
   const [rNthWeek, setRNthWeek] = useState(editRecurring?.nth_week ?? 1)
   const [rAnchor, setRAnchor] = useState(editRecurring?.biweekly_anchor ?? '')
+  const [rStartDate, setRStartDate] = useState(editRecurring?.start_date ?? '')
 
   // Recurring notes state
   const [rNotes, setRNotes] = useState(editRecurring?.notes ?? '')
@@ -97,6 +99,7 @@ export default function TransactionModal({
     setRDayOfWeek(editRecurring?.day_of_week ?? 5)
     setRNthWeek(editRecurring?.nth_week ?? 1)
     setRAnchor(editRecurring?.biweekly_anchor ?? '')
+    setRStartDate(editRecurring?.start_date ?? '')
     setRNotes(editRecurring?.notes ?? '')
 
     // Reset one-time fields
@@ -128,7 +131,8 @@ export default function TransactionModal({
           month: rRecType === 'yearly' ? rMonth : null,
           day_of_week: ['weekly', 'biweekly', 'monthly_nth_weekday'].includes(rRecType) ? rDayOfWeek : null,
           nth_week: rRecType === 'monthly_nth_weekday' ? rNthWeek : null,
-          biweekly_anchor: rRecType === 'biweekly' ? rAnchor || null : null,
+          biweekly_anchor: rRecType === 'biweekly' ? (rStartDate || rAnchor || null) : null,
+          start_date: rStartDate || null,
           notes: rNotes.trim() || null,
         }
         await onSaveRecurring(data)
@@ -262,17 +266,6 @@ export default function TransactionModal({
                   </select>
                 </Field>
               )}
-              {rRecType === 'biweekly' && (
-                <Field label="Starting date">
-                  <input
-                    type="date"
-                    value={rAnchor}
-                    onChange={(e) => setRAnchor(e.target.value)}
-                    className={INPUT_CLS}
-                  />
-                  <p className="text-xs text-gray-400 mt-0.5">Pick any past occurrence of this transaction</p>
-                </Field>
-              )}
               {rRecType === 'monthly_nth_weekday' && (
                 <Field label="Which occurrence">
                   <select value={rNthWeek} onChange={(e) => setRNthWeek(Number(e.target.value))} className={INPUT_CLS}>
@@ -282,6 +275,15 @@ export default function TransactionModal({
                   </select>
                 </Field>
               )}
+              <Field label="Start date">
+                <input
+                  type="date"
+                  value={rStartDate}
+                  onChange={(e) => setRStartDate(e.target.value)}
+                  className={INPUT_CLS}
+                />
+                <p className="text-xs text-gray-400 mt-0.5">Leave blank to start immediately</p>
+              </Field>
               <Field label="Notes">
                 <textarea
                   rows={2}

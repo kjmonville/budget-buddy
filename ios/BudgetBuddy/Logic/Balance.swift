@@ -100,6 +100,7 @@ enum Balance {
             for rule in recurring where rule.active != 0 {
                 for date in Recurrence.expand(rule, year: y, month: m) {
                     if date < fromDate || date > toDate { continue }
+                    if let sd = rule.start_date, date < sd { continue }
                     let skippedId = skipMap["\(rule.id)|\(date)"]
                     let paidId = paidMap["\(rule.id)|\(date)"]
                     let entry = TxEntry(

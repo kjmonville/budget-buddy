@@ -34,6 +34,7 @@ struct RecurringTransaction: Codable, Identifiable, Hashable {
     var day_of_week: Int?
     var nth_week: Int?
     var biweekly_anchor: String?
+    var start_date: String?
     var notes: String?
     var active: Int
     var created_at: String
@@ -60,6 +61,7 @@ struct NewRecurring: Codable {
     var day_of_week: Int?
     var nth_week: Int?
     var biweekly_anchor: String?
+    var start_date: String?
     var notes: String?
 }
 

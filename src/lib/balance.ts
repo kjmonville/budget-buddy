@@ -39,6 +39,7 @@ function buildTxMap(
       if (!rule.active) continue
       for (const date of expandRecurring(rule, y, m)) {
         if (date < fromDate || date > toDate) continue
+        if (rule.start_date && date < rule.start_date) continue
         const skippedId = skipMap.get(`${rule.id}|${date}`) ?? null
         const paidId = paidMap.get(`${rule.id}|${date}`) ?? null
         const day = ensure(date)

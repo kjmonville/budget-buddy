@@ -23,6 +23,7 @@ export interface RecurringTransaction {
   day_of_week: number | null
   nth_week: number | null
   biweekly_anchor: string | null
+  start_date: string | null
   notes: string | null
   active: number
   created_at: string
