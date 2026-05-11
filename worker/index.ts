@@ -262,6 +262,7 @@ async function postRecurring(env: Env, req: Request, userId: string): Promise<Re
     day_of_week?: number | null
     nth_week?: number | null
     biweekly_anchor?: string | null
+    start_date?: string | null
     notes?: string | null
   }>()
 
@@ -280,15 +281,15 @@ async function postRecurring(env: Env, req: Request, userId: string): Promise<Re
   const id = crypto.randomUUID()
   await env.DB.prepare(
     `INSERT INTO recurring_transactions
-       (id, user_id, type, name, amount, recurrence_type, day_of_month, month, day_of_week, nth_week, biweekly_anchor, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, user_id, type, name, amount, recurrence_type, day_of_month, month, day_of_week, nth_week, biweekly_anchor, start_date, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       id, userId,
       body.type, body.name, body.amount, body.recurrence_type,
       body.day_of_month ?? null, body.month ?? null,
       body.day_of_week ?? null, body.nth_week ?? null,
-      body.biweekly_anchor ?? null, body.notes ?? null
+      body.biweekly_anchor ?? null, body.start_date ?? null, body.notes ?? null
     )
     .run()
 
@@ -314,6 +315,7 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
     day_of_week?: number | null
     nth_week?: number | null
     biweekly_anchor?: string | null
+    start_date?: string | null
     notes?: string | null
   }>()
 
@@ -340,6 +342,7 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
          day_of_week = ?,
          nth_week = ?,
          biweekly_anchor = ?,
+         start_date = ?,
          notes = ?
      WHERE id = ? AND user_id = ?`
   )
@@ -348,7 +351,7 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
       body.amount ?? null, body.recurrence_type ?? null,
       body.day_of_month ?? null, body.month ?? null,
       body.day_of_week ?? null, body.nth_week ?? null,
-      body.biweekly_anchor ?? null, body.notes ?? null,
+      body.biweekly_anchor ?? null, body.start_date ?? null, body.notes ?? null,
       id, userId
     )
     .run()
