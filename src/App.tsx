@@ -8,6 +8,7 @@ import BalancePanel from './components/BalancePanel'
 import CalendarView from './components/CalendarView'
 import TransactionModal from './components/TransactionModal'
 import RecurringList from './components/RecurringList'
+import HelpDrawer from './components/HelpDrawer'
 import LoginPage from './components/LoginPage'
 
 const today = localDateStr()
@@ -44,6 +45,7 @@ export default function App() {
   const [editingRecurring, setEditingRecurring] = useState<RecurringTransaction | undefined>()
   const [editingAdhoc, setEditingAdhoc] = useState<AdhocTransaction | undefined>()
   const [recurringPanelOpen, setRecurringPanelOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(getStoredTheme)
   const [chartRange, setChartRange] = useState(30)
 
@@ -442,6 +444,16 @@ export default function App() {
         />
       </main>
 
+      {/* Footer */}
+      <footer className="max-w-5xl mx-auto px-4 py-4 text-center">
+        <button
+          onClick={() => setHelpOpen(true)}
+          className="text-sm text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+        >
+          Help
+        </button>
+      </footer>
+
       {/* Modals & panels */}
       <TransactionModal
         open={modalOpen}
@@ -464,6 +476,8 @@ export default function App() {
         onDeleteAdhoc={handleDeleteAdhoc}
         onClose={() => setRecurringPanelOpen(false)}
       />
+
+      <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   )
 }

@@ -15,6 +15,7 @@ struct CalendarView: View {
     @State private var editingRecurring: RecurringTransaction?
     @State private var editingAdhoc: AdhocTransaction?
     @State private var scheduleOpen = false
+    @State private var helpOpen = false
     @State private var deleteCandidate: DeleteCandidate?
 
     private var api: APIClient {
@@ -58,6 +59,7 @@ struct CalendarView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Add transaction", systemImage: "plus") { addOpen = true }
+                        Button("Help", systemImage: "questionmark.circle") { helpOpen = true }
                         Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                             auth.logout()
                             store.reset()
@@ -83,6 +85,9 @@ struct CalendarView: View {
                     onEditRecurring: { editingRecurring = $0; scheduleOpen = false },
                     onEditAdhoc: { editingAdhoc = $0; scheduleOpen = false }
                 )
+            }
+            .sheet(isPresented: $helpOpen) {
+                HelpView()
             }
             .confirmationDialog(
                 "Delete?",

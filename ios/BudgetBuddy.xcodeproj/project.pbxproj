@@ -12,6 +12,7 @@
 		0A00000003 /* AccountBalance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000003 /* AccountBalance.swift */; };
 		0A00000004 /* SkippedOccurrence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000004 /* SkippedOccurrence.swift */; };
 		0A00000019 /* PaidOccurrence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000019 /* PaidOccurrence.swift */; };
+		0A0000001A /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A0100001A /* HelpView.swift */; };
 		0A00000005 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000005 /* User.swift */; };
 		0A00000006 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000006 /* APIClient.swift */; };
 		0A00000007 /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A01000007 /* AuthStore.swift */; };
@@ -40,6 +41,7 @@
 		0A01000003 /* AccountBalance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountBalance.swift; sourceTree = "<group>"; };
 		0A01000004 /* SkippedOccurrence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkippedOccurrence.swift; sourceTree = "<group>"; };
 		0A01000019 /* PaidOccurrence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaidOccurrence.swift; sourceTree = "<group>"; };
+		0A0100001A /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		0A01000005 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		0A01000006 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		0A01000007 /* AuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStore.swift; sourceTree = "<group>"; };
@@ -149,6 +151,7 @@
 				0A01000014 /* EditTransactionSheet.swift */,
 				0A01000015 /* ScheduleView.swift */,
 				0A01000018 /* LockView.swift */,
+				0A0100001A /* HelpView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -262,6 +265,7 @@
 				0A00000014 /* EditTransactionSheet.swift in Sources */,
 				0A00000015 /* ScheduleView.swift in Sources */,
 				0A00000018 /* LockView.swift in Sources */,
+				0A0000001A /* HelpView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
