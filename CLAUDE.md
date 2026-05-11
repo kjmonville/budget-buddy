@@ -74,7 +74,7 @@ ios/BudgetBuddy/
     LoginView.swift      # Email/password login + Face ID sign-in button when biometrics enabled
     CalendarView.swift   # Main screen: balance header, forecast chart, upcoming transaction list
     ScheduleView.swift   # Sheet: full list of recurring + adhoc transactions
-    TransactionRow.swift # Single row: name, amount, skip toggle, edit/delete actions
+    TransactionRow.swift # Single row: name, amount, cleared/paid toggles, edit/delete actions
     TransactionForm.swift# Shared form fields for add/edit sheets
     AddTransactionSheet.swift
     EditTransactionSheet.swift
@@ -101,8 +101,8 @@ All data endpoints (`/api/balance`, `/api/recurring`, `/api/adhoc`, `/api/skippe
 `src/lib/balance.ts` — `computeAllDailyBalances(startBalance, startDate, recurring, adhoc, skipped, fromDate, toDate)`:
 - `startBalance` = user-entered bank balance at the **start of `startDate`** (before that day's transactions)
 - **Forward pass only**: from `startDate` to `toDate` — past balances are not shown in the UI
-- Skipped transactions are excluded from the daily net calculation
-- App pre-computes today → 18 months forward on load; recomputes whenever balance, transactions, or skipped set changes
+- Cleared transactions are excluded from the daily net calculation
+- App pre-computes today → 18 months forward on load; recomputes whenever balance, transactions, or cleared set changes
 
 ### Recurrence engine
 `src/lib/recurrence.ts` — `expandRecurring(rule, year, month)` returns all dates in the given month that match the rule. Supported patterns:
@@ -112,8 +112,11 @@ All data endpoints (`/api/balance`, `/api/recurring`, `/api/adhoc`, `/api/skippe
 - `yearly` — one specific month + day
 - `monthly_nth_weekday` — e.g. third Tuesday; `nth_week = -1` means last
 
-### Skip occurrences
-Clicking a transaction badge in the calendar marks it as skipped for that date. Skipped occurrences are persisted to `skipped_occurrences(id, user_id, transaction_id, transaction_type, date)` with a `UNIQUE(transaction_id, date)` constraint. Clicking again un-skips. Skipped transactions show struck-through in the UI and are excluded from balance projection.
+### Cleared occurrences
+Clicking a transaction badge in the calendar marks it as cleared for that date — meaning it has already come out of (or landed in) the user's real bank account. Cleared occurrences are persisted to `skipped_occurrences(id, user_id, transaction_id, transaction_type, date)` with a `UNIQUE(transaction_id, date)` constraint. Clicking again un-clears. Cleared transactions show struck-through in the UI and are excluded from the balance projection, since the starting balance already reflects them.
+
+### Paid flag
+Marking a transaction as paid is a personal reminder that a payment has been made but has not yet cleared the bank account. It does **not** affect the balance projection — the transaction still counts because the bank has not yet processed it. Paid state is purely a visual indicator for the user's own tracking.
 
 ### Theme
 `src/lib/theme.ts` — Light/Dark/Auto toggle persisted to `localStorage`. Auto follows the OS system preference. Theme is applied via a CSS class on `<html>`.
@@ -138,8 +141,8 @@ State transitions:
 ### Balance engine (iOS)
 `Logic/Balance.swift` — `computeDaily(...)` mirrors `src/lib/balance.ts` exactly:
 - Window: 3 months back → 18 months forward (`AppStore.fromDate` / `toDate`)
-- Past days: transactions stored with correct skip flags, `endBalance = nil`
-- Past un-skipped transactions surface in `upcomingByDay()` at the top of the list (orange header) so the user can acknowledge them
+- Past days: transactions stored with correct cleared flags, `endBalance = nil`
+- Past uncleared transactions surface in `upcomingByDay()` at the top of the list (orange header) so the user can acknowledge them
 
 ### API client
 `APIClient` is injected via SwiftUI environment key (`\.api`). On any 401 response it calls `auth.logout()` and throws `.unauthorized`. `Config.swift` reads `BB_API_BASE` from `Info.plist`, which is set per build configuration in `project.pbxproj` so debug builds hit localhost and release builds hit production.
