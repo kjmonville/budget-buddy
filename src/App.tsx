@@ -7,6 +7,7 @@ import BalanceInput from './components/BalanceInput'
 import BalancePanel from './components/BalancePanel'
 import CalendarView from './components/CalendarView'
 import TransactionModal from './components/TransactionModal'
+import InstanceEditModal from './components/InstanceEditModal'
 import RecurringList from './components/RecurringList'
 import HelpDrawer from './components/HelpDrawer'
 import LoginPage from './components/LoginPage'
@@ -44,6 +45,7 @@ export default function App() {
   const [modalDate, setModalDate] = useState<string | undefined>()
   const [editingRecurring, setEditingRecurring] = useState<RecurringTransaction | undefined>()
   const [editingAdhoc, setEditingAdhoc] = useState<AdhocTransaction | undefined>()
+  const [editingInstance, setEditingInstance] = useState<{ entry: TxEntry; date: string } | null>(null)
   const [recurringPanelOpen, setRecurringPanelOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(getStoredTheme)
@@ -280,15 +282,10 @@ export default function App() {
     setAdhoc((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  // Edit entry from calendar context menu
-  const handleCalendarEdit = useCallback((entry: TxEntry) => {
+  // Edit instance from calendar context menu
+  const handleCalendarEdit = useCallback((entry: TxEntry, date: string) => {
     if (entry.source === 'recurring') {
-      const r = recurring.find((r) => r.id === entry.id)
-      if (!r) return
-      setEditingRecurring(r)
-      setEditingAdhoc(undefined)
-      setModalDate(undefined)
-      setModalOpen(true)
+      setEditingInstance({ entry, date })
     } else {
       const t = adhoc.find((t) => t.id === entry.id)
       if (!t) return
@@ -297,16 +294,50 @@ export default function App() {
       setModalDate(undefined)
       setModalOpen(true)
     }
-  }, [recurring, adhoc])
+  }, [adhoc])
 
-  // Delete entry from calendar context menu
-  const handleCalendarDelete = useCallback((entry: TxEntry) => {
+  // Delete instance from calendar context menu
+  const handleCalendarDelete = useCallback(async (entry: TxEntry, date: string) => {
     if (entry.source === 'recurring') {
-      handleDeleteRecurring(entry.id)
+      if (!confirm('Delete this occurrence? The rest of the series is unchanged.')) return
+      const created = await api.skipOccurrence(entry.id, 'recurring', date, 'deleted')
+      setSkipped((prev) => {
+        const idx = prev.findIndex((s) => s.transaction_id === created.transaction_id && s.date === created.date)
+        if (idx === -1) return [...prev, created]
+        const next = prev.slice()
+        next[idx] = created
+        return next
+      })
     } else {
       handleDeleteAdhoc(entry.id)
     }
-  }, [handleDeleteRecurring, handleDeleteAdhoc])
+  }, [handleDeleteAdhoc])
+
+  // Save an edited single instance: hide the original occurrence + create an adhoc override.
+  const handleSaveInstance = useCallback(async (data: { date: string; amount: number; notes: string | null }) => {
+    if (!editingInstance) return
+    const { entry, date: originalDate } = editingInstance
+    const rule = recurring.find((r) => r.id === entry.id)
+    if (!rule) throw new Error('Recurring transaction not found')
+
+    const skippedRow = await api.skipOccurrence(entry.id, 'recurring', originalDate, 'deleted')
+    setSkipped((prev) => {
+      const idx = prev.findIndex((s) => s.transaction_id === skippedRow.transaction_id && s.date === skippedRow.date)
+      if (idx === -1) return [...prev, skippedRow]
+      const next = prev.slice()
+      next[idx] = skippedRow
+      return next
+    })
+
+    const created = await api.createAdhoc({
+      type: rule.type,
+      name: rule.name,
+      amount: data.amount,
+      date: data.date,
+      notes: data.notes,
+    })
+    setAdhoc((prev) => [...prev, created])
+  }, [editingInstance, recurring])
 
   // Checking auth
   if (user === undefined) {
@@ -464,6 +495,14 @@ export default function App() {
         onSaveAdhoc={handleSaveAdhoc}
         onUpdateAdhoc={handleUpdateAdhoc}
         onClose={handleModalClose}
+      />
+
+      <InstanceEditModal
+        open={editingInstance !== null}
+        rule={editingInstance ? recurring.find((r) => r.id === editingInstance.entry.id) : undefined}
+        originalDate={editingInstance?.date ?? ''}
+        onSave={handleSaveInstance}
+        onClose={() => setEditingInstance(null)}
       />
 
       <RecurringList

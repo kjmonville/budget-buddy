@@ -98,10 +98,15 @@ export const deleteAdhoc = (id: string) =>
 export const getSkipped = () =>
   request<SkippedOccurrence[]>('/skipped')
 
-export const skipOccurrence = (transaction_id: string, transaction_type: 'recurring' | 'adhoc', date: string) =>
+export const skipOccurrence = (
+  transaction_id: string,
+  transaction_type: 'recurring' | 'adhoc',
+  date: string,
+  mode: 'cleared' | 'deleted' = 'cleared'
+) =>
   request<SkippedOccurrence>('/skipped', {
     method: 'POST',
-    body: JSON.stringify({ transaction_id, transaction_type, date }),
+    body: JSON.stringify({ transaction_id, transaction_type, date, mode }),
   })
 
 export const unskipOccurrence = (id: string) =>

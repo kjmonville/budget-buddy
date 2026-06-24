@@ -62,6 +62,7 @@ export interface SkippedOccurrence {
   transaction_id: string
   transaction_type: 'recurring' | 'adhoc'
   date: string
+  mode: 'cleared' | 'deleted'
   created_at: string
 }
 

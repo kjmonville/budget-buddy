@@ -459,12 +459,15 @@ async function getSkipped(env: Env, userId: string): Promise<Response> {
 }
 
 async function postSkipped(env: Env, req: Request, userId: string): Promise<Response> {
-  const body = await req.json<{ transaction_id?: string; transaction_type?: string; date?: string }>()
+  const body = await req.json<{ transaction_id?: string; transaction_type?: string; date?: string; mode?: string }>()
   if (!body.transaction_id || !body.transaction_type || !body.date)
     return badRequest('transaction_id, transaction_type, date are required')
   if (body.transaction_type !== 'recurring' && body.transaction_type !== 'adhoc')
     return badRequest('transaction_type must be "recurring" or "adhoc"')
   if (!isValidDate(body.date)) return badRequest('date must be YYYY-MM-DD')
+  const mode = body.mode ?? 'cleared'
+  if (mode !== 'cleared' && mode !== 'deleted')
+    return badRequest('mode must be "cleared" or "deleted"')
 
   // Verify the transaction belongs to the authenticated user (issue 3)
   const table = body.transaction_type === 'recurring' ? 'recurring_transactions' : 'adhoc_transactions'
@@ -475,8 +478,10 @@ async function postSkipped(env: Env, req: Request, userId: string): Promise<Resp
 
   const id = crypto.randomUUID()
   await env.DB.prepare(
-    'INSERT OR IGNORE INTO skipped_occurrences (id, user_id, transaction_id, transaction_type, date) VALUES (?, ?, ?, ?, ?)'
-  ).bind(id, userId, body.transaction_id, body.transaction_type, body.date).run()
+    `INSERT INTO skipped_occurrences (id, user_id, transaction_id, transaction_type, date, mode)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(transaction_id, date) DO UPDATE SET mode = excluded.mode`
+  ).bind(id, userId, body.transaction_id, body.transaction_type, body.date, mode).run()
   const row = await env.DB.prepare(
     'SELECT * FROM skipped_occurrences WHERE transaction_id = ? AND date = ? AND user_id = ?'
   ).bind(body.transaction_id, body.date, userId).first()

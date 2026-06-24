@@ -12,8 +12,8 @@ interface Props {
   onClick: (date: string) => void
   onToggleSkip: (entry: TxEntry, date: string) => void
   onTogglePaid: (entry: TxEntry, date: string) => void
-  onEdit: (entry: TxEntry) => void
-  onDelete: (entry: TxEntry) => void
+  onEdit: (entry: TxEntry, date: string) => void
+  onDelete: (entry: TxEntry, date: string) => void
 }
 
 export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, onToggleSkip, onTogglePaid, onEdit, onDelete }: Props) {
@@ -109,16 +109,16 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
           onClick={(e) => e.stopPropagation()}
         >
           <button
-            onClick={() => { setContextMenu(null); onEdit(contextMenu.entry) }}
+            onClick={() => { setContextMenu(null); onEdit(contextMenu.entry, date) }}
             className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            Edit
+            Edit Instance
           </button>
           <button
-            onClick={() => { setContextMenu(null); onDelete(contextMenu.entry) }}
+            onClick={() => { setContextMenu(null); onDelete(contextMenu.entry, date) }}
             className="w-full text-left px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            Delete
+            Delete Instance
           </button>
         </div>
       )}

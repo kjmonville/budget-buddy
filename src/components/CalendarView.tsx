@@ -14,8 +14,8 @@ interface Props {
   onDayClick: (date: string) => void
   onToggleSkip: (entry: TxEntry, date: string) => void
   onTogglePaid: (entry: TxEntry, date: string) => void
-  onEdit: (entry: TxEntry) => void
-  onDelete: (entry: TxEntry) => void
+  onEdit: (entry: TxEntry, date: string) => void
+  onDelete: (entry: TxEntry, date: string) => void
   onPrev: () => void
   onNext: () => void
 }

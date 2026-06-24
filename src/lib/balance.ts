@@ -20,9 +20,9 @@ function buildTxMap(
     return map.get(date)!
   }
 
-  const skipMap = new Map<string, string>()
+  const skipMap = new Map<string, { id: string; mode: 'cleared' | 'deleted' }>()
   for (const s of skipped) {
-    skipMap.set(`${s.transaction_id}|${s.date}`, s.id)
+    skipMap.set(`${s.transaction_id}|${s.date}`, { id: s.id, mode: s.mode })
   }
 
   const paidMap = new Map<string, string>()
@@ -40,7 +40,9 @@ function buildTxMap(
       for (const date of expandRecurring(rule, y, m)) {
         if (date < fromDate || date > toDate) continue
         if (rule.start_date && date < rule.start_date) continue
-        const skippedId = skipMap.get(`${rule.id}|${date}`) ?? null
+        const skip = skipMap.get(`${rule.id}|${date}`) ?? null
+        if (skip?.mode === 'deleted') continue
+        const skippedId = skip?.id ?? null
         const paidId = paidMap.get(`${rule.id}|${date}`) ?? null
         const day = ensure(date)
         const entry: TxEntry = { id: rule.id, name: rule.name, amount: rule.amount, source: 'recurring', skipped: skippedId !== null, skippedId, paid: paidId !== null, paidId }
@@ -54,7 +56,9 @@ function buildTxMap(
 
   for (const tx of adhoc) {
     if (tx.date < fromDate || tx.date > toDate) continue
-    const skippedId = skipMap.get(`${tx.id}|${tx.date}`) ?? null
+    const skip = skipMap.get(`${tx.id}|${tx.date}`) ?? null
+    if (skip?.mode === 'deleted') continue
+    const skippedId = skip?.id ?? null
     const paidId = paidMap.get(`${tx.id}|${tx.date}`) ?? null
     const day = ensure(tx.date)
     const entry: TxEntry = { id: tx.id, name: tx.name, amount: tx.amount, source: 'adhoc', skipped: skippedId !== null, skippedId, paid: paidId !== null, paidId }
