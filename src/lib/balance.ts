@@ -1,5 +1,5 @@
 import type { AdhocTransaction, DayBalance, PaidOccurrence, RecurringTransaction, SkippedOccurrence, TxEntry } from '../types'
-import { expandRecurring } from './recurrence'
+import { countOccurrencesThrough, expandRecurring } from './recurrence'
 
 export function localDateStr(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -40,12 +40,18 @@ function buildTxMap(
       for (const date of expandRecurring(rule, y, m)) {
         if (date < fromDate || date > toDate) continue
         if (rule.start_date && date < rule.start_date) continue
+        let occurrencesRemaining: number | null = null
+        if (rule.occurrence_count != null) {
+          const occurrenceIndex = countOccurrencesThrough(rule, date)
+          if (occurrenceIndex > rule.occurrence_count) continue
+          occurrencesRemaining = rule.occurrence_count - occurrenceIndex + 1
+        }
         const skip = skipMap.get(`${rule.id}|${date}`) ?? null
         if (skip?.mode === 'deleted') continue
         const skippedId = skip?.id ?? null
         const paidId = paidMap.get(`${rule.id}|${date}`) ?? null
         const day = ensure(date)
-        const entry: TxEntry = { id: rule.id, name: rule.name, amount: rule.amount, source: 'recurring', skipped: skippedId !== null, skippedId, paid: paidId !== null, paidId }
+        const entry: TxEntry = { id: rule.id, name: rule.name, amount: rule.amount, source: 'recurring', skipped: skippedId !== null, skippedId, paid: paidId !== null, paidId, occurrencesRemaining }
         if (rule.type === 'deposit') day.deposits.push(entry)
         else day.expenses.push(entry)
       }
@@ -61,7 +67,7 @@ function buildTxMap(
     const skippedId = skip?.id ?? null
     const paidId = paidMap.get(`${tx.id}|${tx.date}`) ?? null
     const day = ensure(tx.date)
-    const entry: TxEntry = { id: tx.id, name: tx.name, amount: tx.amount, source: 'adhoc', skipped: skippedId !== null, skippedId, paid: paidId !== null, paidId }
+    const entry: TxEntry = { id: tx.id, name: tx.name, amount: tx.amount, source: 'adhoc', skipped: skippedId !== null, skippedId, paid: paidId !== null, paidId, occurrencesRemaining: null }
     if (tx.type === 'deposit') day.deposits.push(entry)
     else day.expenses.push(entry)
   }

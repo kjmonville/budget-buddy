@@ -5,20 +5,23 @@ const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 const NTH = ['', '1st', '2nd', '3rd', '4th', '5th', '', '', '', '', '', '', 'Last']
 
 function describeRule(r: RecurringTransaction): string {
-  switch (r.recurrence_type) {
-    case 'monthly_fixed':
-      return `Every month on the ${ordinal(r.day_of_month ?? 1)}`
-    case 'weekly':
-      return `Every ${DOW[r.day_of_week ?? 0]}`
-    case 'biweekly':
-      return `Every other ${DOW[r.day_of_week ?? 0]}`
-    case 'yearly':
-      return `Every ${MONTHS_SHORT[(r.month ?? 1) - 1]} ${ordinal(r.day_of_month ?? 1)}`
-    case 'monthly_nth_weekday': {
-      const nthLabel = r.nth_week === -1 ? 'Last' : NTH[r.nth_week ?? 1]
-      return `${nthLabel} ${DOW[r.day_of_week ?? 0]} of every month`
+  const base = (() => {
+    switch (r.recurrence_type) {
+      case 'monthly_fixed':
+        return `Every month on the ${ordinal(r.day_of_month ?? 1)}`
+      case 'weekly':
+        return `Every ${DOW[r.day_of_week ?? 0]}`
+      case 'biweekly':
+        return `Every other ${DOW[r.day_of_week ?? 0]}`
+      case 'yearly':
+        return `Every ${MONTHS_SHORT[(r.month ?? 1) - 1]} ${ordinal(r.day_of_month ?? 1)}`
+      case 'monthly_nth_weekday': {
+        const nthLabel = r.nth_week === -1 ? 'Last' : NTH[r.nth_week ?? 1]
+        return `${nthLabel} ${DOW[r.day_of_week ?? 0]} of every month`
+      }
     }
-  }
+  })()
+  return r.occurrence_count != null ? `${base} · ${r.occurrence_count}x` : base
 }
 
 function ordinal(n: number): string {

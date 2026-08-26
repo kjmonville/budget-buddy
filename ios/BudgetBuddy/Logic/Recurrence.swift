@@ -57,6 +57,31 @@ enum Recurrence {
             return [dateStr(occurrences[idx])]
         }
     }
+
+    /// Returns the 1-based occurrence number of `date` for this rule, counting
+    /// every firing from `rule.start_date` (inclusive) through `date`
+    /// (inclusive). Requires `rule.start_date` — without an anchor there's no
+    /// well-defined "1st occurrence" to count from. Returns 0 if `date` isn't
+    /// on/after the start date. Mirrors `countOccurrencesThrough` in
+    /// src/lib/recurrence.ts.
+    static func countOccurrencesThrough(_ rule: RecurringTransaction, through date: String) -> Int {
+        guard let startDate = rule.start_date, date >= startDate else { return 0 }
+        let startParts = startDate.split(separator: "-").compactMap { Int($0) }
+        let toParts = date.split(separator: "-").compactMap { Int($0) }
+        guard startParts.count == 3, toParts.count == 3 else { return 0 }
+        var (y, m) = (startParts[0], startParts[1])
+        let (toY, toM) = (toParts[0], toParts[1])
+
+        var count = 0
+        while y < toY || (y == toY && m <= toM) {
+            for d in expand(rule, year: y, month: m) where d >= startDate && d <= date {
+                count += 1
+            }
+            m += 1
+            if m > 12 { m = 1; y += 1 }
+        }
+        return count
+    }
 }
 
 extension Calendar {

@@ -22,7 +22,7 @@ struct TransactionRow: View {
                 .frame(maxHeight: .infinity)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.name)
+                Text(entry.occurrencesRemaining.map { "\(entry.name) [\($0)]" } ?? entry.name)
                     .font(.body.weight(.medium))
                     .strikethrough(entry.skipped)
                     .foregroundStyle(entry.skipped ? Color.secondary : Color.primary)

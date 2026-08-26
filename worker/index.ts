@@ -50,6 +50,17 @@ function validateLengths(fields: Record<string, { value: string | undefined | nu
   return null
 }
 
+function validateOccurrenceCount(
+  occurrenceCount: number | null | undefined,
+  startDate: string | null | undefined
+): string | null {
+  if (occurrenceCount == null) return null
+  if (!Number.isInteger(occurrenceCount) || occurrenceCount < 1)
+    return 'occurrence_count must be a positive integer'
+  if (!startDate) return 'occurrence_count requires a start_date'
+  return null
+}
+
 // ─── Auth utilities ───────────────────────────────────────────────────────────
 
 async function hashPassword(password: string, salt: string): Promise<string> {
@@ -263,6 +274,7 @@ async function postRecurring(env: Env, req: Request, userId: string): Promise<Re
     nth_week?: number | null
     biweekly_anchor?: string | null
     start_date?: string | null
+    occurrence_count?: number | null
     notes?: string | null
   }>()
 
@@ -272,6 +284,8 @@ async function postRecurring(env: Env, req: Request, userId: string): Promise<Re
   if (!isFinite(body.amount)) return badRequest('amount must be a finite number')
   if (!VALID_TYPES.has(body.type)) return badRequest('type must be "deposit" or "expense"')
   if (!VALID_RECURRENCE_TYPES.has(body.recurrence_type)) return badRequest('invalid recurrence_type')
+  const occErr = validateOccurrenceCount(body.occurrence_count, body.start_date)
+  if (occErr) return badRequest(occErr)
   const lenErr = validateLengths({
     name:  { value: body.name,  max: 100 },
     notes: { value: body.notes, max: 500 },
@@ -281,15 +295,16 @@ async function postRecurring(env: Env, req: Request, userId: string): Promise<Re
   const id = crypto.randomUUID()
   await env.DB.prepare(
     `INSERT INTO recurring_transactions
-       (id, user_id, type, name, amount, recurrence_type, day_of_month, month, day_of_week, nth_week, biweekly_anchor, start_date, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, user_id, type, name, amount, recurrence_type, day_of_month, month, day_of_week, nth_week, biweekly_anchor, start_date, occurrence_count, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       id, userId,
       body.type, body.name, body.amount, body.recurrence_type,
       body.day_of_month ?? null, body.month ?? null,
       body.day_of_week ?? null, body.nth_week ?? null,
-      body.biweekly_anchor ?? null, body.start_date ?? null, body.notes ?? null
+      body.biweekly_anchor ?? null, body.start_date ?? null,
+      body.occurrence_count ?? null, body.notes ?? null
     )
     .run()
 
@@ -316,6 +331,7 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
     nth_week?: number | null
     biweekly_anchor?: string | null
     start_date?: string | null
+    occurrence_count?: number | null
     notes?: string | null
   }>()
 
@@ -325,6 +341,8 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
     return badRequest('type must be "deposit" or "expense"')
   if (body.recurrence_type != null && !VALID_RECURRENCE_TYPES.has(body.recurrence_type))
     return badRequest('invalid recurrence_type')
+  const occErr = validateOccurrenceCount(body.occurrence_count, body.start_date)
+  if (occErr) return badRequest(occErr)
   const lenErr = validateLengths({
     name:  { value: body.name,  max: 100 },
     notes: { value: body.notes, max: 500 },
@@ -343,6 +361,7 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
          nth_week = ?,
          biweekly_anchor = ?,
          start_date = ?,
+         occurrence_count = ?,
          notes = ?
      WHERE id = ? AND user_id = ?`
   )
@@ -351,7 +370,8 @@ async function putRecurring(env: Env, req: Request, id: string, userId: string):
       body.amount ?? null, body.recurrence_type ?? null,
       body.day_of_month ?? null, body.month ?? null,
       body.day_of_week ?? null, body.nth_week ?? null,
-      body.biweekly_anchor ?? null, body.start_date ?? null, body.notes ?? null,
+      body.biweekly_anchor ?? null, body.start_date ?? null,
+      body.occurrence_count ?? null, body.notes ?? null,
       id, userId
     )
     .run()

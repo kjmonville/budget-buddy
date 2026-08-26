@@ -33,6 +33,7 @@ const DEFAULT_RECURRING: Omit<RecurringTransaction, 'id' | 'active' | 'created_a
   nth_week: null,
   biweekly_anchor: null,
   start_date: null,
+  occurrence_count: null,
   notes: null,
 }
 
@@ -61,6 +62,9 @@ export default function TransactionModal({
   const [rNthWeek, setRNthWeek] = useState(editRecurring?.nth_week ?? 1)
   const [rAnchor, setRAnchor] = useState(editRecurring?.biweekly_anchor ?? '')
   const [rStartDate, setRStartDate] = useState(editRecurring?.start_date ?? '')
+  const [rOccurrenceCount, setROccurrenceCount] = useState(
+    editRecurring?.occurrence_count != null ? String(editRecurring.occurrence_count) : ''
+  )
 
   // Recurring notes state
   const [rNotes, setRNotes] = useState(editRecurring?.notes ?? '')
@@ -100,6 +104,7 @@ export default function TransactionModal({
     setRNthWeek(editRecurring?.nth_week ?? 1)
     setRAnchor(editRecurring?.biweekly_anchor ?? '')
     setRStartDate(editRecurring?.start_date ?? '')
+    setROccurrenceCount(editRecurring?.occurrence_count != null ? String(editRecurring.occurrence_count) : '')
     setRNotes(editRecurring?.notes ?? '')
 
     // Reset one-time fields
@@ -121,6 +126,16 @@ export default function TransactionModal({
         if (!rName.trim()) throw new Error('Name is required')
         if (isNaN(amt) || amt <= 0) throw new Error('Amount must be a positive number')
 
+        let occurrenceCount: number | null = null
+        if (rOccurrenceCount.trim()) {
+          const n = parseInt(rOccurrenceCount, 10)
+          if (isNaN(n) || n < 1) throw new Error('Number of occurrences must be a positive whole number')
+          occurrenceCount = n
+        }
+        // A limited series needs an anchor date to count occurrences from —
+        // default to today when the user didn't pick one.
+        const startDate = rStartDate || (occurrenceCount != null ? new Date().toISOString().slice(0, 10) : null)
+
         const data: Omit<RecurringTransaction, 'id' | 'active' | 'created_at'> = {
           ...DEFAULT_RECURRING,
           type: rType,
@@ -131,8 +146,9 @@ export default function TransactionModal({
           month: rRecType === 'yearly' ? rMonth : null,
           day_of_week: ['weekly', 'biweekly', 'monthly_nth_weekday'].includes(rRecType) ? rDayOfWeek : null,
           nth_week: rRecType === 'monthly_nth_weekday' ? rNthWeek : null,
-          biweekly_anchor: rRecType === 'biweekly' ? (rStartDate || rAnchor || null) : null,
-          start_date: rStartDate || null,
+          biweekly_anchor: rRecType === 'biweekly' ? (startDate || rAnchor || null) : null,
+          start_date: startDate,
+          occurrence_count: occurrenceCount,
           notes: rNotes.trim() || null,
         }
         await onSaveRecurring(data)
@@ -283,6 +299,18 @@ export default function TransactionModal({
                   className={INPUT_CLS}
                 />
                 <p className="text-xs text-gray-400 mt-0.5">Leave blank to start immediately</p>
+              </Field>
+              <Field label="Number of occurrences">
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={rOccurrenceCount}
+                  onChange={(e) => setROccurrenceCount(e.target.value)}
+                  placeholder="Indefinite"
+                  className={INPUT_CLS}
+                />
+                <p className="text-xs text-gray-400 mt-0.5">Leave blank to repeat indefinitely</p>
               </Field>
               <Field label="Notes">
                 <textarea

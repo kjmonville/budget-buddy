@@ -120,16 +120,17 @@ struct ScheduleView: View {
     }
 
     private func scheduleDescription(_ r: RecurringTransaction) -> String {
+        let base: String
         switch r.recurrence_type {
         case .monthly_fixed:
-            return "Monthly on day \(r.day_of_month ?? 1)"
+            base = "Monthly on day \(r.day_of_month ?? 1)"
         case .weekly:
-            return "Weekly on \(weekdayName(r.day_of_week ?? 0))"
+            base = "Weekly on \(weekdayName(r.day_of_week ?? 0))"
         case .biweekly:
-            return "Every two weeks on \(weekdayName(r.day_of_week ?? 0))"
+            base = "Every two weeks on \(weekdayName(r.day_of_week ?? 0))"
         case .yearly:
             let m = monthName(r.month ?? 1)
-            return "Yearly on \(m) \(r.day_of_month ?? 1)"
+            base = "Yearly on \(m) \(r.day_of_month ?? 1)"
         case .monthly_nth_weekday:
             let nth: String = {
                 switch r.nth_week ?? 1 {
@@ -138,8 +139,10 @@ struct ScheduleView: View {
                 default: return "nth"
                 }
             }()
-            return "Monthly on the \(nth) \(weekdayName(r.day_of_week ?? 0))"
+            base = "Monthly on the \(nth) \(weekdayName(r.day_of_week ?? 0))"
         }
+        guard let count = r.occurrence_count else { return base }
+        return "\(base) · \(count)x"
     }
 
     private func formatDate(_ ymd: String) -> String {
