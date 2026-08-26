@@ -24,6 +24,7 @@ export interface RecurringTransaction {
   nth_week: number | null
   biweekly_anchor: string | null
   start_date: string | null
+  occurrence_count: number | null
   notes: string | null
   active: number
   created_at: string
@@ -55,6 +56,7 @@ export interface TxEntry {
   skippedId: string | null
   paid: boolean
   paidId: string | null
+  occurrencesRemaining: number | null
 }
 
 export interface SkippedOccurrence {

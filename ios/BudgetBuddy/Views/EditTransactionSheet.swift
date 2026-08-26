@@ -28,6 +28,7 @@ struct EditTransactionSheet: View {
     @State private var rNthWeek: Int = 1
     @State private var rAnchor: Date = Date()
     @State private var rAnchorSet = false
+    @State private var rOccurrenceCount = ""
     @State private var rNotes = ""
 
     // Adhoc
@@ -52,7 +53,8 @@ struct EditTransactionSheet: View {
                     rType: $rType, rName: $rName, rAmount: $rAmount,
                     rRecType: $rRecType, rDayOfMonth: $rDayOfMonth, rMonth: $rMonth,
                     rDayOfWeek: $rDayOfWeek, rNthWeek: $rNthWeek,
-                    rAnchor: $rAnchor, rAnchorSet: $rAnchorSet, rNotes: $rNotes,
+                    rAnchor: $rAnchor, rAnchorSet: $rAnchorSet,
+                    rOccurrenceCount: $rOccurrenceCount, rNotes: $rNotes,
                     aType: $aType, aName: $aName, aAmount: $aAmount,
                     aDate: $aDate, aNotes: $aNotes,
                     allowModeSwitch: false
@@ -118,7 +120,10 @@ struct EditTransactionSheet: View {
             rNthWeek = r.nth_week ?? 1
             if let a = r.biweekly_anchor, let d = Calendar.parseYMD(a) {
                 rAnchor = d; rAnchorSet = true
+            } else if let sd = r.start_date, let d = Calendar.parseYMD(sd) {
+                rAnchor = d; rAnchorSet = true
             }
+            rOccurrenceCount = r.occurrence_count != nil ? String(r.occurrence_count!) : ""
             rNotes = r.notes ?? ""
         case .adhoc(let a):
             mode = .oneTime
@@ -141,7 +146,8 @@ struct EditTransactionSheet: View {
                         type: rType, name: rName, amount: rAmount,
                         recType: rRecType, dayOfMonth: rDayOfMonth, month: rMonth,
                         dayOfWeek: rDayOfWeek, nthWeek: rNthWeek,
-                        anchor: rAnchor, anchorSet: rAnchorSet, notes: rNotes
+                        anchor: rAnchor, anchorSet: rAnchorSet,
+                        occurrenceCount: rOccurrenceCount, notes: rNotes
                     )
                     let updated = try await api.updateRecurring(id: r.id, body)
                     if let i = store.recurring.firstIndex(where: { $0.id == r.id }) {

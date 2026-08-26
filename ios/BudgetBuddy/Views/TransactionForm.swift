@@ -18,6 +18,7 @@ struct TransactionForm: View {
     @Binding var rNthWeek: Int
     @Binding var rAnchor: Date
     @Binding var rAnchorSet: Bool
+    @Binding var rOccurrenceCount: String
     @Binding var rNotes: String
 
     // One-time fields
@@ -113,6 +114,19 @@ struct TransactionForm: View {
             }
         }
 
+        Section {
+            HStack {
+                Text("Number of occurrences")
+                Spacer()
+                TextField("Indefinite", text: $rOccurrenceCount)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 100)
+            }
+        } footer: {
+            Text("Leave blank to repeat indefinitely")
+        }
+
         Section("Notes") {
             TextField("Optional", text: $rNotes, axis: .vertical)
                 .lineLimit(2...4)
@@ -159,12 +173,13 @@ struct TransactionForm: View {
 /// ready for the API. Throws a user-friendly error on invalid input.
 enum TransactionFormValidator {
     enum ValidationError: LocalizedError {
-        case emptyName, badAmount, missingDate
+        case emptyName, badAmount, missingDate, badOccurrenceCount
         var errorDescription: String? {
             switch self {
-            case .emptyName:    return "Name is required"
-            case .badAmount:    return "Amount must be a positive number"
-            case .missingDate:  return "Date is required"
+            case .emptyName:           return "Name is required"
+            case .badAmount:           return "Amount must be a positive number"
+            case .missingDate:         return "Date is required"
+            case .badOccurrenceCount:  return "Number of occurrences must be a positive whole number"
             }
         }
     }
@@ -172,7 +187,8 @@ enum TransactionFormValidator {
     static func buildRecurring(
         type: TransactionType, name: String, amount: String,
         recType: RecurrenceType, dayOfMonth: Int, month: Int,
-        dayOfWeek: Int, nthWeek: Int, anchor: Date, anchorSet: Bool, notes: String
+        dayOfWeek: Int, nthWeek: Int, anchor: Date, anchorSet: Bool,
+        occurrenceCount: String, notes: String
     ) throws -> NewRecurring {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { throw ValidationError.emptyName }
@@ -182,7 +198,17 @@ enum TransactionFormValidator {
         let m: Int? = recType == .yearly ? month : nil
         let dow: Int? = [.weekly, .biweekly, .monthly_nth_weekday].contains(recType) ? dayOfWeek : nil
         let nth: Int? = recType == .monthly_nth_weekday ? nthWeek : nil
-        let anc: String? = (recType == .biweekly && anchorSet) ? Calendar.ymdString(anchor) : nil
+
+        let trimmedCount = occurrenceCount.trimmingCharacters(in: .whitespaces)
+        var count: Int?
+        if !trimmedCount.isEmpty {
+            guard let n = Int(trimmedCount), n >= 1 else { throw ValidationError.badOccurrenceCount }
+            count = n
+        }
+        // A limited series needs an anchor date to count occurrences from —
+        // default to today when the user didn't pick one via the anchor picker.
+        let startDate: String? = anchorSet ? Calendar.ymdString(anchor) : (count != nil ? Calendar.todayYMD() : nil)
+        let anc: String? = recType == .biweekly ? startDate : nil
         let trimmedNotes = notes.trimmingCharacters(in: .whitespaces)
 
         return NewRecurring(
@@ -190,6 +216,8 @@ enum TransactionFormValidator {
             recurrence_type: recType,
             day_of_month: dom, month: m, day_of_week: dow, nth_week: nth,
             biweekly_anchor: anc,
+            start_date: startDate,
+            occurrence_count: count,
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes
         )
     }

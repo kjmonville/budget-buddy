@@ -22,6 +22,7 @@ struct AddTransactionSheet: View {
     @State private var rNthWeek: Int = 1
     @State private var rAnchor: Date = Date()
     @State private var rAnchorSet = false
+    @State private var rOccurrenceCount = ""
     @State private var rNotes = ""
 
     // One-time
@@ -46,7 +47,8 @@ struct AddTransactionSheet: View {
                     rType: $rType, rName: $rName, rAmount: $rAmount,
                     rRecType: $rRecType, rDayOfMonth: $rDayOfMonth, rMonth: $rMonth,
                     rDayOfWeek: $rDayOfWeek, rNthWeek: $rNthWeek,
-                    rAnchor: $rAnchor, rAnchorSet: $rAnchorSet, rNotes: $rNotes,
+                    rAnchor: $rAnchor, rAnchorSet: $rAnchorSet,
+                    rOccurrenceCount: $rOccurrenceCount, rNotes: $rNotes,
                     aType: $aType, aName: $aName, aAmount: $aAmount,
                     aDate: $aDate, aNotes: $aNotes
                 )
@@ -84,7 +86,8 @@ struct AddTransactionSheet: View {
                         type: rType, name: rName, amount: rAmount,
                         recType: rRecType, dayOfMonth: rDayOfMonth, month: rMonth,
                         dayOfWeek: rDayOfWeek, nthWeek: rNthWeek,
-                        anchor: rAnchor, anchorSet: rAnchorSet, notes: rNotes
+                        anchor: rAnchor, anchorSet: rAnchorSet,
+                        occurrenceCount: rOccurrenceCount, notes: rNotes
                     )
                     let created = try await api.createRecurring(body)
                     store.recurring.append(created)

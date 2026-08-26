@@ -112,6 +112,8 @@ All data endpoints (`/api/balance`, `/api/recurring`, `/api/adhoc`, `/api/skippe
 - `yearly` — one specific month + day
 - `monthly_nth_weekday` — e.g. third Tuesday; `nth_week = -1` means last
 
+`countOccurrencesThrough(rule, date)` returns the 1-based occurrence number of `date`, counting every firing from `rule.start_date` (inclusive) through `date`. Used to cap a series at a fixed number of instances: when `occurrence_count` is set, `balance.ts` drops any occurrence whose index exceeds it and stamps the rest with `occurrencesRemaining` (`occurrence_count - index + 1`), which the calendar appends to the transaction name as `Name [n]`. Requires `start_date` to be set — without an anchor there's no well-defined 1st occurrence, so the UI defaults `start_date` to today when a count is entered without one. Leaving the count blank repeats indefinitely.
+
 ### Cleared occurrences
 Clicking a transaction badge in the calendar marks it as cleared for that date — meaning it has already come out of (or landed in) the user's real bank account. Cleared occurrences are persisted to `skipped_occurrences(id, user_id, transaction_id, transaction_type, date)` with a `UNIQUE(transaction_id, date)` constraint. Clicking again un-clears. Cleared transactions show struck-through in the UI and are excluded from the balance projection, since the starting balance already reflects them.
 

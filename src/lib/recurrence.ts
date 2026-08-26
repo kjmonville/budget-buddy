@@ -73,3 +73,30 @@ export function expandRecurring(
     }
   }
 }
+
+/**
+ * Returns the 1-based occurrence number of `date` for this rule, counting
+ * every firing from `rule.start_date` (inclusive) through `date` (inclusive).
+ * Requires `rule.start_date` to be set — without an anchor there's no
+ * well-defined "1st occurrence" to count from. Returns 0 if `date` isn't
+ * on/after the start date.
+ */
+export function countOccurrencesThrough(
+  rule: RecurringTransaction,
+  date: string
+): number {
+  if (!rule.start_date || date < rule.start_date) return 0
+  const [startY, startM] = rule.start_date.split('-').map(Number)
+  const [toY, toM] = date.split('-').map(Number)
+
+  let count = 0
+  let y = startY, m = startM
+  while (y < toY || (y === toY && m <= toM)) {
+    for (const d of expandRecurring(rule, y, m)) {
+      if (d >= rule.start_date && d <= date) count++
+    }
+    m++
+    if (m > 12) { m = 1; y++ }
+  }
+  return count
+}
