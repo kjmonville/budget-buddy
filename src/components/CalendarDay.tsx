@@ -1,8 +1,18 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import type { MouseEvent } from 'react'
 import type { DayBalance, TxEntry } from '../types'
 
 const fmt = (n: number) =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const formatDay = (dateStr: string) =>
+  new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  })
+
+// Half the tooltip's max width — keeps it clamped inside the viewport
+const TIP_HALF_WIDTH = 130
 
 interface Props {
   date: string
@@ -69,6 +79,8 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
               entry={t}
               date={date}
               isDeposit
+              isPast={isPast}
+              isToday={isToday}
               onToggleSkip={onToggleSkip}
               onTogglePaid={onTogglePaid}
               onContextMenu={(entry, x, y) => setContextMenu({ x, y, entry })}
@@ -80,6 +92,8 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
               entry={t}
               date={date}
               isDeposit={false}
+              isPast={isPast}
+              isToday={isToday}
               onToggleSkip={onToggleSkip}
               onTogglePaid={onTogglePaid}
               onContextMenu={(entry, x, y) => setContextMenu({ x, y, entry })}
@@ -130,6 +144,8 @@ function TxBadge({
   entry,
   date,
   isDeposit,
+  isPast,
+  isToday,
   onToggleSkip,
   onTogglePaid,
   onContextMenu,
@@ -137,15 +153,51 @@ function TxBadge({
   entry: TxEntry
   date: string
   isDeposit: boolean
+  isPast: boolean
+  isToday: boolean
   onToggleSkip: (entry: TxEntry, date: string) => void
   onTogglePaid: (entry: TxEntry, date: string) => void
   onContextMenu: (entry: TxEntry, x: number, y: number) => void
 }) {
+  const [tip, setTip] = useState<{ x: number; y: number; above: boolean } | null>(null)
+  const [overPaid, setOverPaid] = useState(false)
+
+  const showTip = (e: MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const above = r.top > 140
+    setTip({
+      x: Math.min(
+        Math.max(r.left + r.width / 2, TIP_HALF_WIDTH + 8),
+        window.innerWidth - TIP_HALF_WIDTH - 8,
+      ),
+      y: above ? r.top - 6 : r.bottom + 6,
+      above,
+    })
+  }
+
+  const hideTip = () => { setTip(null); setOverPaid(false) }
+
+  // What this occurrence means on this specific date
+  const status = entry.skipped
+    ? 'Cleared — not in the projection'
+    : entry.paid
+      ? 'Paid — not cleared yet'
+      : isPast
+        ? 'Not yet cleared'
+        : isToday
+          ? 'Due today'
+          : 'Scheduled'
+
+  const action = overPaid
+    ? entry.paid ? 'Click the check to mark unpaid' : 'Click the check to mark paid'
+    : entry.skipped ? 'Click to restore' : 'Click to clear'
+
   return (
     <div
       onClick={(e) => { e.stopPropagation(); onToggleSkip(entry, date) }}
-      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(entry, e.clientX, e.clientY) }}
-      title={entry.skipped ? 'Click to re-enable' : 'Click to skip'}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); hideTip(); onContextMenu(entry, e.clientX, e.clientY) }}
+      onMouseEnter={showTip}
+      onMouseLeave={hideTip}
       className={[
         'text-[10px] leading-tight rounded px-1 flex items-center gap-0.5 cursor-pointer select-none',
         entry.skipped
@@ -161,7 +213,8 @@ function TxBadge({
     >
       <button
         onClick={(e) => { e.stopPropagation(); onTogglePaid(entry, date) }}
-        title={entry.paid ? 'Mark unpaid' : 'Mark paid'}
+        onMouseEnter={() => setOverPaid(true)}
+        onMouseLeave={() => setOverPaid(false)}
         className="shrink-0 leading-none"
       >
         {entry.paid
@@ -174,7 +227,41 @@ function TxBadge({
         {entry.occurrencesRemaining != null ? ` [${entry.occurrencesRemaining}]` : ''}
       </span>
       <span className="font-mono shrink-0">{isDeposit ? '+' : '-'}{fmt(entry.amount)}</span>
+
+      {/* Hover detail — portalled so a faded past-day cell can't dim it */}
+      {tip && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            left: tip.x,
+            top: tip.y,
+            transform: `translate(-50%, ${tip.above ? '-100%' : '0'})`,
+          }}
+          className="z-50 pointer-events-none w-max max-w-[260px] rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg"
+        >
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs font-semibold text-gray-800 dark:text-gray-100 break-words">
+              {entry.name}
+              {entry.occurrencesRemaining != null ? ` [${entry.occurrencesRemaining}]` : ''}
+            </span>
+            <span
+              className={[
+                'ml-auto text-xs font-mono font-semibold shrink-0',
+                isDeposit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
+              ].join(' ')}
+            >
+              {isDeposit ? '+' : '-'}${fmt(entry.amount)}
+            </span>
+          </div>
+          <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-snug">
+            {formatDay(date)} · {status}
+          </div>
+          <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 leading-snug">
+            {action}
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }
-
