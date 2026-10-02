@@ -153,6 +153,8 @@ Consequence worth knowing: an edited occurrence is no longer part of the series,
 
 The tooltip is rendered through `createPortal` to `document.body` rather than in place. Past-day cells carry `opacity-60`, and CSS opacity dims descendants no matter their positioning — rendered inline the tooltip came out greyed. The portal also sidesteps the transaction list's `overflow-hidden`. Position is fixed, clamped to the viewport, and flips below the badge near the top edge.
 
+The right-click context menu is portalled for the same reason, and it matters more there: opacity below 1 also creates a stacking context, so an inline menu's `z-50` was trapped inside the past-day cell and later cells painted over it, swallowing clicks (issue #24). The menu is clamped to the viewport after layout and closes on scroll or resize.
+
 ### Paid flag
 Marking a transaction as paid is a personal reminder that a payment has been made but has not yet cleared the bank account. It does **not** affect the balance projection — the transaction still counts because the bank has not yet processed it. Paid state is purely a visual indicator for the user's own tracking. Persisted to `paid_occurrences`, which mirrors `skipped_occurrences` minus the `mode` column.
 

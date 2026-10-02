@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { MouseEvent } from 'react'
 import type { DayBalance, TxEntry } from '../types'
@@ -34,6 +34,7 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
   const hasTransactions = (data?.deposits.length ?? 0) + (data?.expenses.length ?? 0) > 0
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; entry: TxEntry } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!contextMenu) return
@@ -41,10 +42,25 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null) }
     document.addEventListener('mousedown', close)
     document.addEventListener('keydown', onKey)
+    // Fixed position would leave the menu stranded while the grid moves underneath
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
     return () => {
       document.removeEventListener('mousedown', close)
       document.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
     }
+  }, [contextMenu])
+
+  // Keep the menu inside the viewport when opened near the right or bottom edge
+  useLayoutEffect(() => {
+    const el = menuRef.current
+    if (!contextMenu || !el) return
+    const r = el.getBoundingClientRect()
+    const x = Math.max(8, Math.min(contextMenu.x, window.innerWidth - r.width - 8))
+    const y = Math.max(8, Math.min(contextMenu.y, window.innerHeight - r.height - 8))
+    if (x !== contextMenu.x || y !== contextMenu.y) setContextMenu({ ...contextMenu, x, y })
   }, [contextMenu])
 
   return (
@@ -114,9 +130,10 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
         </div>
       )}
 
-      {/* Context menu */}
-      {contextMenu && (
+      {/* Context menu — portalled so a faded past-day cell can't dim it or trap its z-index */}
+      {contextMenu && createPortal(
         <div
+          ref={menuRef}
           style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y }}
           className="z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[120px]"
           onMouseDown={(e) => e.stopPropagation()}
@@ -134,7 +151,8 @@ export default function CalendarDay({ date, day, data, isCurrentMonth, onClick, 
           >
             Delete Instance
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
